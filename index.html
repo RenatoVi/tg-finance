@@ -1,0 +1,4369 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Financeiro - Sung Jin-Woo</title>
+
+<!-- TailwindCSS CDN -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+
+<style>
+    /* Animação para toast */
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .toast {
+        animation: slideIn 0.3s ease-out;
+    }
+    
+    /* Modal overlay */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Prevenir scroll do body quando modal está aberto */
+    body.modal-open {
+        overflow: hidden !important;
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    /* Garantir que o modal tenha scroll próprio */
+    .modal-overlay.active {
+        display: flex;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Prevenir que o scroll do modal afete o body */
+    .modal-overlay.active * {
+        overscroll-behavior: contain;
+    }
+    
+    /* Estilos de validação */
+    .input-error {
+        border-color: #ef4444 !important;
+        border-width: 2px;
+    }
+    
+    .input-success {
+        border-color: #10b981 !important;
+        border-width: 2px;
+    }
+    
+    .error-message {
+        color: #ef4444;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    /* Collapse animation */
+    .collapse-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .collapse-content.expanded {
+        max-height: 1000px;
+        transition: max-height 0.3s ease-in;
+    }
+    
+    .collapse-icon {
+        transition: transform 0.3s ease;
+    }
+    
+    .collapse-icon.rotated {
+        transform: rotate(180deg);
+    }
+</style>
+
+</head>
+
+<body class="bg-gray-100 min-h-screen text-gray-800">
+
+<!-- ========================== HEADER ========================== -->
+<header class="bg-white shadow p-5 mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-blue-700">
+                Sistema Financeiro - Sung Jin-Woo
+            </h1>
+            <p class="text-gray-500">Controle de Entradas, Despesas e Resumo</p>
+        </div>
+        <button onclick="abrirModalConfiguracoes()" 
+                class="bg-gray-200 hover:bg-gray-300 text-gray-700 p-3 rounded-lg transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+        </button>
+    </div>
+</header>
+
+
+<!-- ========================== BOTÕES DE GERENCIAMENTO ========================== -->
+<div class="max-w-6xl mx-auto mb-6">
+    <div class="bg-white p-4 rounded-xl shadow flex flex-wrap gap-3 justify-center">
+        <button onclick="abrirModalReset()"
+                class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-medium">
+            🔄 Resetar Tudo
+        </button>
+        <button onclick="exportarJSON()"
+                class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">
+            📥 Exportar JSON
+        </button>
+        <button onclick="document.getElementById('importarJSONInput').click()"
+                class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-medium">
+            📤 Importar JSON
+        </button>
+        <input type="file" id="importarJSONInput" accept=".json" style="display: none;" onchange="importarJSON(event)">
+    </div>
+</div>
+
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- ========================== CARD: FILTRO ========================== -->
+    <div class="col-span-1 lg:col-span-2 bg-white p-6 rounded-xl shadow">
+        <button onclick="toggleFiltros()" 
+                class="w-full flex items-center justify-between mb-4 p-2 hover:bg-gray-50 rounded-lg transition-colors">
+            <h2 class="text-xl font-semibold">Filtros</h2>
+            <svg id="filtrosIcon" class="collapse-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
+
+        <div id="filtrosContent" class="collapse-content">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- Coluna 1: Filtro de Mês (Range) -->
+            <div>
+                <label class="block mb-2 font-medium text-gray-600">Período (mm/yyyy)</label>
+                
+                <div class="mb-3">
+                    <label class="block mb-1 text-sm text-gray-500">Mês Inicial</label>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alterarMesFiltroInicial(-1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <input id="filtroMesInicial" type="text" placeholder="ex: 12/2025" maxlength="7"
+                               class="flex-1 p-3 border rounded-lg text-center"
+                               oninput="aplicarMascaraData(this); filtrarMesRange()"
+                               onchange="filtrarMesRange()">
+                        <button onclick="alterarMesFiltroInicial(1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="filtroMesInicialErro" class="error-message hidden"></p>
+                </div>
+                
+                <div>
+                    <label class="block mb-1 text-sm text-gray-500">Mês Final</label>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alterarMesFiltroFinal(-1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <input id="filtroMesFinal" type="text" placeholder="ex: 12/2025" maxlength="7"
+                               class="flex-1 p-3 border rounded-lg text-center"
+                               oninput="aplicarMascaraData(this); filtrarMesRange()"
+                               onchange="filtrarMesRange()">
+                        <button onclick="alterarMesFiltroFinal(1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="filtroMesFinalErro" class="error-message hidden"></p>
+                </div>
+            </div>
+
+            <!-- Coluna 2: Filtros de Entrada -->
+            <div>
+                <label class="block mb-2 font-medium text-gray-600">Filtrar Entradas por Categoria</label>
+                <select id="filtroCategoriaEntrada" 
+                        class="w-full p-3 border rounded-lg mb-1"
+                        onchange="aplicarFiltroCategoriaEntrada()">
+                    <option value="todas">Todas as Categorias</option>
+                </select>
+            </div>
+
+            <!-- Coluna 3: Filtros de Despesas -->
+            <div class="text-left">
+                <label class="block mb-2 font-medium text-gray-600 text-left">Filtrar Despesas por Tipo</label>
+                <select id="filtroTipoDespesa" 
+                        class="w-full p-3 border rounded-lg mb-4"
+                        onchange="aplicarFiltroTipoDespesa()">
+                    <option value="todas">Todas as Despesas</option>
+                    <option value="fixa">Apenas Fixas</option>
+                    <option value="variavel">Apenas Variáveis</option>
+                </select>
+
+                <label class="block mb-2 font-medium text-gray-600 text-left">Filtrar Despesas por Categoria</label>
+                <select id="filtroCategoriaDespesa" 
+                        class="w-full p-3 border rounded-lg mb-1"
+                        onchange="aplicarFiltroCategoriaDespesa()">
+                    <option value="todas">Todas as Categorias</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Botões abaixo dos inputs -->
+        <div class="flex gap-3">
+            <button onclick="limparFiltro()"
+                class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Limpar Filtro
+            </button>
+        </div>
+        </div>
+    </div>
+
+
+    <!-- ========================== CARD: ADICIONAR ENTRADA ========================== -->
+    <div class="col-span-1 bg-white p-6 rounded-xl shadow" style="display: none;">
+        <h2 class="text-xl font-semibold mb-4">Adicionar Entrada</h2>
+
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+            <button onclick="abrirModalCategorias()" 
+                    class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                Gerenciar
+            </button>
+        </div>
+        <select id="entradaCategoria" class="w-full p-3 border rounded-lg mb-3"
+                onkeypress="if(event.key === 'Enter') addEntrada()">
+            <option value="">Nenhuma</option>
+        </select>
+        <p id="entradaCategoriaErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Valor (R$)</label>
+        <input id="entradaValor" type="text"
+               class="w-full p-3 border rounded-lg mb-1" placeholder="ex: 8.800,00"
+               oninput="aplicarMascaraMoeda(this, 'entradaValorErro')"
+               onkeypress="if(event.key === 'Enter') addEntrada()">
+        <p id="entradaValorErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Mês (mm/yyyy)</label>
+        <div class="flex items-center gap-2 mb-1">
+            <button onclick="alterarMesEntrada(-1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <input id="entradaMes" type="text" maxlength="7"
+                   class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
+                   oninput="aplicarMascaraData(this, 'entradaMesErro'); if(document.getElementById('entradaData').value) validarDataDentroMes('entradaData', 'entradaMes', 'entradaDataErro');"
+                   onkeypress="if(event.key === 'Enter') addEntrada()">
+            <button onclick="alterarMesEntrada(1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+        </div>
+        <p id="entradaMesErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Data (dd/mm/yyyy)</label>
+        <input id="entradaData" type="date"
+               class="w-full p-3 border rounded-lg mb-1"
+               onchange="validarDataDentroMes('entradaData', 'entradaMes', 'entradaDataErro')"
+               onkeypress="if(event.key === 'Enter') addEntrada()">
+        <p id="entradaDataErro" class="error-message hidden"></p>
+
+        <button onclick="addEntrada()"
+            class="bg-blue-600 text-white w-full py-2 rounded-lg hover:bg-blue-700">
+            Adicionar Entrada
+        </button>
+    </div>
+
+
+    <!-- ========================== CARD: ADICIONAR DESPESA ========================== -->
+    <div class="col-span-1 bg-white p-6 rounded-xl shadow" style="display: none;">
+        <h2 class="text-xl font-semibold mb-4">Adicionar Despesa</h2>
+
+        <label class="block text-gray-600 font-medium mt-3">Tipo</label>
+        <select id="despesaTipo" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesa()">
+            <option value="fixa">Fixa</option>
+            <option value="variavel">Variável</option>
+        </select>
+
+        <!-- Tipo de Despesa Fixa (Indeterminado/Determinado) -->
+        <div id="tipoFixaContainer" style="display: none;">
+            <label class="block text-gray-600 font-medium mb-2">Tipo de Despesa Fixa</label>
+            <select id="despesaTipoFixa" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesa()">
+                <option value="indeterminado">Indeterminado</option>
+                <option value="determinado">Determinado</option>
+            </select>
+
+            <!-- Campos para Despesa Determinada -->
+            <div id="despesaDeterminadaContainer" style="display: none;">
+                <label class="block text-gray-600 font-medium mb-2">Data de Início</label>
+                <input id="despesaDataInicio" type="date" class="w-full p-3 border rounded-lg mb-3">
+                <p id="despesaDataInicioErro" class="error-message hidden"></p>
+
+                <label class="block text-gray-600 font-medium mb-2">Data de Fim</label>
+                <input id="despesaDataFim" type="date" class="w-full p-3 border rounded-lg mb-3">
+                <p id="despesaDataFimErro" class="error-message hidden"></p>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+            <label id="despesaCategoriaLabel" class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+            <button onclick="abrirModalCategorias()" 
+                    class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                Gerenciar
+            </button>
+        </div>
+        <select id="despesaCategoria" class="w-full p-3 border rounded-lg mb-3">
+            <option value="">Nenhuma</option>
+        </select>
+        <p id="despesaCategoriaErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Valor (R$)</label>
+        <input id="despesaValor" type="text"
+               class="w-full p-3 border rounded-lg mb-1" placeholder="ex: 300,00"
+               oninput="aplicarMascaraMoeda(this, 'despesaValorErro')"
+               onkeypress="if(event.key === 'Enter') addDespesa()">
+        <p id="despesaValorErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium">Mês (mm/yyyy)</label>
+        <div class="flex items-center gap-2 mb-1">
+            <button onclick="alterarMesDespesa(-1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <input id="despesaMes" type="text" maxlength="7"
+                   class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
+                   oninput="aplicarMascaraData(this, 'despesaMesErro'); if(document.getElementById('despesaData').value) validarDataDentroMes('despesaData', 'despesaMes', 'despesaDataErro');"
+                   onkeypress="if(event.key === 'Enter') addDespesa()">
+            <button onclick="alterarMesDespesa(1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+        </div>
+        <p id="despesaMesErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Data (dd/mm/yyyy)</label>
+        <input id="despesaData" type="date"
+               class="w-full p-3 border rounded-lg mb-1"
+               onchange="validarDataDentroMes('despesaData', 'despesaMes', 'despesaDataErro')"
+               onkeypress="if(event.key === 'Enter') addDespesa()">
+        <p id="despesaDataErro" class="error-message hidden"></p>
+
+        <button onclick="addDespesa()"
+            class="bg-red-600 text-white w-full py-2 rounded-lg hover:bg-red-700">
+            Adicionar Despesa
+        </button>
+
+        <hr class="my-4">
+
+        <!-- Collapse: Copiar Despesas -->
+        <button onclick="toggleImportarDespesas()" 
+                class="w-full flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors">
+            <h3 class="text-lg font-semibold text-purple-700">Copiar Despesas</h3>
+            <svg id="importarIcon" class="collapse-icon w-5 h-5 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </button>
+        
+        <div id="importarDespesasContent" class="collapse-content">
+            <div class="mt-3">
+                <label class="block mb-2 font-medium text-gray-600">Mês de Origem (mm/yyyy)</label>
+                <input id="importarMesOrigem" type="text" maxlength="7"
+                       class="w-full p-3 border rounded-lg mb-3" placeholder="ex: 11/2024"
+                       oninput="aplicarMascaraData(this, 'importarMesOrigemErro')">
+                <p id="importarMesOrigemErro" class="error-message hidden"></p>
+
+                <label class="block mb-2 font-medium text-gray-600">Mês de Destino (mm/yyyy)</label>
+                <input id="importarMesDestino" type="text" maxlength="7"
+                       class="w-full p-3 border rounded-lg mb-3" placeholder="ex: 12/2024"
+                       oninput="aplicarMascaraData(this, 'importarMesDestinoErro')">
+                <p id="importarMesDestinoErro" class="error-message hidden"></p>
+
+                <label class="block mb-2 font-medium text-gray-600">Tipos a Copiar</label>
+                <div class="mb-3 space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="importarFixas" checked class="mr-2">
+                        <span>Despesas Fixas</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="importarVariaveis" checked class="mr-2">
+                        <span>Despesas Variáveis</span>
+                    </label>
+    </div>
+
+                <button onclick="abrirModalImportacao()"
+                    class="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">
+                    Copiar Despesas
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- ========================== LISTAGENS ========================== -->
+<div class="max-w-6xl mx-auto mt-10">
+    <!-- Exibição do Mês Filtrado -->
+    <div id="mesFiltradoDisplay" class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-lg mb-6" style="display: none;">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            <div>
+                <p class="text-sm text-gray-600">Filtro ativo:</p>
+                <p class="text-lg font-semibold text-blue-600" id="mesFiltradoTexto"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- TABELA: ENTRADAS -->
+    <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-semibold">Entradas</h2>
+            <button onclick="abrirModalAdicionarEntrada()" 
+                    class="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+        </div>
+
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b">
+                    <th class="py-2">Categoria</th>
+                    <th class="py-2">Valor</th>
+                    <th class="py-2">Mês</th>
+                    <th class="py-2">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaEntradas"></tbody>
+        </table>
+    </div>
+
+    <!-- TABELA: DESPESAS -->
+    <div class="bg-white p-6 rounded-xl shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-semibold">Despesas</h2>
+            <div class="flex items-center gap-2">
+                <button onclick="abrirModalCopiarDespesas()" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center justify-center text-sm font-medium">
+                    📋 Copiar Despesas
+                </button>
+                <button onclick="abrirModalAdicionarDespesa()" 
+                        class="bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b">
+                    <th class="py-2">Categoria</th>
+                    <th class="py-2">Valor</th>
+                    <th class="py-2">Tipo</th>
+                    <th class="py-2">Mês</th>
+                    <th class="py-2">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaDespesas"></tbody>
+        </table>
+    </div>
+
+</div>
+
+
+<!-- ========================== RESUMO MENSAL ========================== -->
+<div class="max-w-6xl mx-auto mt-10 mb-20">
+    <div class="bg-white p-6 rounded-xl shadow">
+        <h2 class="text-2xl font-semibold mb-6">Resumo</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <!-- Card: Total de Entradas -->
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-600">Total de Entradas</p>
+                </div>
+                <p id="totalEntradas" class="text-2xl font-bold text-green-700"></p>
+            </div>
+
+            <!-- Card: Total de Despesas -->
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-600">Total de Despesas</p>
+                </div>
+                <p id="totalDespesas" class="text-2xl font-bold text-red-700"></p>
+            </div>
+
+            <!-- Card: Despesas Fixas -->
+            <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-600">Despesas Fixas</p>
+                </div>
+                <p id="totalDespesasFixas" class="text-2xl font-bold text-orange-700"></p>
+            </div>
+
+            <!-- Card: Despesas Variáveis -->
+            <div class="bg-pink-50 border-l-4 border-pink-500 p-4 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-600">Despesas Variáveis</p>
+                </div>
+                <p id="totalDespesasVariaveis" class="text-2xl font-bold text-pink-700"></p>
+            </div>
+        </div>
+
+        <!-- Saldo Final em destaque -->
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 p-6 rounded-lg mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-green-500 p-3 rounded-full">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-600 mb-1">Saldo Final</p>
+                        <p id="saldo" class="text-3xl font-bold text-green-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Distribuição do Saldo -->
+        <div id="distribuicaoSaldo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Card: Investimento -->
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-5 rounded-lg">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                        <p class="text-base font-semibold text-gray-700">Investimento</p>
+                    </div>
+                    <span id="badgeInvestimento" class="bg-blue-200 text-blue-800 text-xs font-semibold px-2 py-1 rounded">70%</span>
+                </div>
+                <p id="investimento" class="text-2xl font-bold text-blue-700"></p>
+            </div>
+
+            <!-- Card: Lazer/Eventualidades -->
+            <div class="bg-purple-50 border-l-4 border-purple-500 p-5 rounded-lg">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="text-base font-semibold text-gray-700">Lazer/Eventualidades</p>
+                    </div>
+                    <span id="badgeLazer" class="bg-purple-200 text-purple-800 text-xs font-semibold px-2 py-1 rounded">30%</span>
+                </div>
+                <p id="lazer" class="text-2xl font-bold text-purple-700"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================== MODAL DE EDIÇÃO ========================== -->
+<div id="modalEdicao" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold mb-4" id="modalTitulo">Editar Item</h3>
+        
+        <label class="block text-gray-600 font-medium mb-2 mt-3" id="labelTipo" style="display: none;">Tipo</label>
+        <select id="modalTipo" class="w-full p-3 border rounded-lg mb-3" style="display: none;" onchange="atualizarCamposModalDespesa()">
+            <option value="fixa">Fixa</option>
+            <option value="variavel">Variável</option>
+        </select>
+
+        <!-- Tipo de Despesa Fixa (Indeterminado/Determinado) -->
+        <div id="modalTipoFixaContainer" style="display: none;">
+            <label class="block text-gray-600 font-medium mb-2">Tipo de Despesa Fixa</label>
+            <select id="modalTipoFixa" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposModalDespesa()">
+                <option value="indeterminado">Indeterminado</option>
+                <option value="determinado">Determinado</option>
+            </select>
+
+            <!-- Campos para Despesa Determinada -->
+            <div id="modalDespesaDeterminadaContainer" style="display: none;">
+                <label class="block text-gray-600 font-medium mb-2">Data de Início</label>
+                <input id="modalDataInicio" type="date" class="w-full p-3 border rounded-lg mb-3">
+                <p id="modalDataInicioErro" class="error-message hidden"></p>
+
+                <label class="block text-gray-600 font-medium mb-2">Data de Fim</label>
+                <input id="modalDataFim" type="date" class="w-full p-3 border rounded-lg mb-3">
+                <p id="modalDataFimErro" class="error-message hidden"></p>
+            </div>
+
+            <!-- Checkbox para gerar automaticamente (apenas para indeterminadas) -->
+            <div id="modalGerarAutomaticamenteContainer" style="display: none;">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input id="modalGerarAutomaticamente" type="checkbox" 
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="text-gray-700">Gerar esta despesa automaticamente em novos meses</span>
+                </label>
+            </div>
+        </div>
+        
+        <div id="modalNomeContainer" style="display: none;">
+            <label class="block text-gray-600 font-medium mb-2">Nome</label>
+            <input id="modalNome" type="text" class="w-full p-3 border rounded-lg mb-1"
+                   oninput="validarNome(this, 'modalNomeErro')">
+            <p id="modalNomeErro" class="error-message hidden"></p>
+        </div>
+        
+        <div id="labelCategoriaContainer" style="display: none;" class="mb-2 mt-3">
+            <div class="flex items-center justify-between">
+                <label id="modalCategoriaLabel" class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+                <button onclick="abrirModalCategorias()" 
+                        class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                    Gerenciar
+                </button>
+            </div>
+        </div>
+        <select id="modalCategoria" class="w-full p-3 border rounded-lg mb-3" style="display: none;">
+            <option value="">Nenhuma</option>
+        </select>
+        <p id="modalCategoriaErro" class="error-message hidden"></p>
+        
+        <label class="block text-gray-600 font-medium mb-2 mt-3">Valor (R$)</label>
+        <input id="modalValor" type="text" class="w-full p-3 border rounded-lg mb-1"
+               oninput="aplicarMascaraMoeda(this, 'modalValorErro')">
+        <p id="modalValorErro" class="error-message hidden"></p>
+        
+        <label class="block text-gray-600 font-medium mb-2 mt-3">Mês (mm/yyyy)</label>
+        <input id="modalMes" type="text" maxlength="7" class="w-full p-3 border rounded-lg mb-1"
+               oninput="aplicarMascaraData(this, 'modalMesErro'); if(document.getElementById('modalData').value) validarDataDentroMes('modalData', 'modalMes', 'modalDataErro');">
+        <p id="modalMesErro" class="error-message hidden"></p>
+        
+        <label class="block text-gray-600 font-medium mb-2 mt-3">Data (dd/mm/yyyy)</label>
+        <input id="modalData" type="date" class="w-full p-3 border rounded-lg mb-1"
+               onchange="validarDataDentroMes('modalData', 'modalMes', 'modalDataErro')">
+        <p id="modalDataErro" class="error-message hidden"></p>
+        
+        <div id="modalDescricaoContainer" style="display: none;">
+            <label class="block text-gray-600 font-medium mb-2 mt-3">Descrição <span class="text-gray-400 text-sm">(opcional)</span></label>
+            <textarea id="modalDescricao" 
+                      class="w-full p-3 border rounded-lg mb-1" 
+                      rows="3" 
+                      placeholder="Adicione uma descrição para esta despesa..."></textarea>
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="salvarEdicao()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Salvar
+            </button>
+            <button onclick="fecharModal()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================== MODAL DE CONFIRMAÇÃO ========================== -->
+<div id="modalConfirmacao" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold mb-4">Confirmar Exclusão</h3>
+        <p id="confirmacaoTexto" class="mb-6 text-gray-700"></p>
+        <div class="flex gap-3">
+            <button onclick="confirmarExclusao()" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700">
+                Excluir
+            </button>
+            <button onclick="cancelarExclusao()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================== MODAL DE CONFIRMAÇÃO RESET ========================== -->
+<div id="modalReset" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold mb-4 text-red-600">⚠️ Resetar Todos os Dados</h3>
+        <p class="mb-6 text-gray-700">
+            <strong>ATENÇÃO:</strong> Esta ação irá <strong>deletar permanentemente</strong> todos os dados:
+            <ul class="list-disc list-inside mt-3 space-y-1 text-gray-600">
+                <li>Todas as entradas</li>
+                <li>Todas as despesas</li>
+                <li>Todas as categorias</li>
+            </ul>
+            <br>
+            Esta ação <strong>NÃO pode ser desfeita</strong>. Deseja realmente continuar?
+        </p>
+        <div class="flex gap-3">
+            <button onclick="confirmarReset()" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 font-medium">
+                Sim, Resetar Tudo
+            </button>
+            <button onclick="cancelarReset()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================== MODAL ADICIONAR ENTRADA ========================== -->
+<div id="modalAdicionarEntrada" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-2xl font-bold">Adicionar Entrada</h3>
+            <button onclick="fecharModalAdicionarEntrada()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+            <button onclick="abrirModalCategorias()" 
+                    class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                Gerenciar
+            </button>
+        </div>
+        <select id="modalEntradaCategoria" class="w-full p-3 border rounded-lg mb-3"
+                onkeypress="if(event.key === 'Enter') addEntradaModal()">
+            <option value="">Nenhuma</option>
+        </select>
+        <p id="modalEntradaCategoriaErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Valor (R$)</label>
+        <input id="modalEntradaValor" type="text"
+               class="w-full p-3 border rounded-lg mb-1" placeholder="ex: 8.800,00"
+               oninput="aplicarMascaraMoeda(this, 'modalEntradaValorErro')"
+               onkeypress="if(event.key === 'Enter') addEntradaModal()">
+        <p id="modalEntradaValorErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Mês (mm/yyyy)</label>
+        <div class="flex items-center gap-2 mb-1">
+            <button onclick="alterarMesEntradaModal(-1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <input id="modalEntradaMes" type="text" maxlength="7"
+                   class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
+                   oninput="aplicarMascaraData(this, 'modalEntradaMesErro'); if(document.getElementById('modalEntradaData').value) validarDataDentroMes('modalEntradaData', 'modalEntradaMes', 'modalEntradaDataErro');"
+                   onkeypress="if(event.key === 'Enter') addEntradaModal()">
+            <button onclick="alterarMesEntradaModal(1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+        </div>
+        <p id="modalEntradaMesErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Data (dd/mm/yyyy)</label>
+        <input id="modalEntradaData" type="date"
+               class="w-full p-3 border rounded-lg mb-1"
+               onchange="validarDataDentroMes('modalEntradaData', 'modalEntradaMes', 'modalEntradaDataErro')"
+               onkeypress="if(event.key === 'Enter') addEntradaModal()">
+        <p id="modalEntradaDataErro" class="error-message hidden"></p>
+
+        <div class="flex gap-3 mt-4">
+            <button onclick="addEntradaModal()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Adicionar
+            </button>
+            <button onclick="fecharModalAdicionarEntrada()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================== MODAL ADICIONAR DESPESA ========================== -->
+<div id="modalAdicionarDespesa" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-2xl font-bold">Adicionar Despesa</h3>
+            <button onclick="fecharModalAdicionarDespesa()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <label class="block text-gray-600 font-medium mt-3">Tipo</label>
+        <select id="modalDespesaTipo" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesaModal()">
+            <option value="fixa">Fixa</option>
+            <option value="variavel">Variável</option>
+        </select>
+
+        <!-- Tipo de Despesa Fixa (Indeterminado/Determinado) -->
+        <div id="modalDespesaTipoFixaContainer" style="display: none;">
+            <label class="block text-gray-600 font-medium mb-2">Tipo de Despesa Fixa</label>
+            <select id="modalDespesaTipoFixa" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesaModal()">
+                <option value="indeterminado">Indeterminado</option>
+                <option value="determinado">Determinado</option>
+            </select>
+
+            <!-- Campos para Despesa Determinada -->
+            <div id="modalDespesaDeterminadaContainer" style="display: none;">
+                <label class="block text-gray-600 font-medium mb-2">Data de Início</label>
+                <input id="modalDespesaDataInicio" type="date" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarMinDataFim()">
+                <p id="modalDespesaDataInicioErro" class="error-message hidden"></p>
+
+                <label class="block text-gray-600 font-medium mb-2">Data de Fim</label>
+                <input id="modalDespesaDataFim" type="date" class="w-full p-3 border rounded-lg mb-3">
+                <p id="modalDespesaDataFimErro" class="error-message hidden"></p>
+            </div>
+
+            <!-- Checkbox para gerar automaticamente (apenas para indeterminadas) -->
+            <div id="modalDespesaGerarAutomaticamenteContainer" style="display: none;">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input id="modalDespesaGerarAutomaticamente" type="checkbox" checked
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="text-gray-700">Gerar esta despesa automaticamente em novos meses</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+            <label id="modalDespesaCategoriaLabel" class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+            <button onclick="abrirModalCategorias()" 
+                    class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                Gerenciar
+            </button>
+        </div>
+        <select id="modalDespesaCategoria" class="w-full p-3 border rounded-lg mb-3">
+            <option value="">Nenhuma</option>
+        </select>
+        <p id="modalDespesaCategoriaErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Valor (R$)</label>
+        <input id="modalDespesaValor" type="text"
+               class="w-full p-3 border rounded-lg mb-1" placeholder="ex: 300,00"
+               oninput="aplicarMascaraMoeda(this, 'modalDespesaValorErro')"
+               onkeypress="if(event.key === 'Enter') addDespesaModal()">
+        <p id="modalDespesaValorErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium">Mês (mm/yyyy)</label>
+        <div class="flex items-center gap-2 mb-1">
+            <button onclick="alterarMesDespesaModal(-1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </button>
+            <input id="modalDespesaMes" type="text" maxlength="7"
+                   class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
+                   oninput="aplicarMascaraData(this, 'modalDespesaMesErro'); if(document.getElementById('modalDespesaData').value) validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro');"
+                   onkeypress="if(event.key === 'Enter') addDespesaModal()">
+            <button onclick="alterarMesDespesaModal(1)" 
+                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+        </div>
+        <p id="modalDespesaMesErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Data (dd/mm/yyyy)</label>
+        <input id="modalDespesaData" type="date"
+               class="w-full p-3 border rounded-lg mb-1"
+               onchange="validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro')"
+               onkeypress="if(event.key === 'Enter') addDespesaModal()">
+        <p id="modalDespesaDataErro" class="error-message hidden"></p>
+
+        <label class="block text-gray-600 font-medium mt-3">Descrição <span class="text-gray-400 text-sm">(opcional)</span></label>
+        <textarea id="modalDespesaDescricao" 
+                  class="w-full p-3 border rounded-lg mb-1" 
+                  rows="3" 
+                  placeholder="Adicione uma descrição para esta despesa..."></textarea>
+
+        <div class="flex gap-3 mt-4">
+            <button onclick="addDespesaModal()" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700">
+                Adicionar
+            </button>
+            <button onclick="fecharModalAdicionarDespesa()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================== MODAL COPIAR DESPESAS ========================== -->
+<div id="modalCopiarDespesas" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-2xl font-bold">Copiar Despesas</h3>
+            <button onclick="fecharModalCopiarDespesas()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <label class="block mb-2 font-medium text-gray-600">Mês de Origem (mm/yyyy)</label>
+        <input id="modalCopiarMesOrigem" type="text" maxlength="7"
+               class="w-full p-3 border rounded-lg mb-3" placeholder="ex: 11/2024"
+               oninput="aplicarMascaraData(this, 'modalCopiarMesOrigemErro')">
+        <p id="modalCopiarMesOrigemErro" class="error-message hidden"></p>
+
+        <label class="block mb-2 font-medium text-gray-600">Mês de Destino (mm/yyyy)</label>
+        <input id="modalCopiarMesDestino" type="text" maxlength="7"
+               class="w-full p-3 border rounded-lg mb-3" placeholder="ex: 12/2024"
+               oninput="aplicarMascaraData(this, 'modalCopiarMesDestinoErro')">
+        <p id="modalCopiarMesDestinoErro" class="error-message hidden"></p>
+
+        <label class="block mb-2 font-medium text-gray-600">Tipos a Copiar</label>
+        <div class="mb-3 space-y-2">
+            <label class="flex items-center">
+                <input type="checkbox" id="modalCopiarFixas" checked class="mr-2">
+                <span>Despesas Fixas</span>
+            </label>
+            <label class="flex items-center">
+                <input type="checkbox" id="modalCopiarVariaveis" checked class="mr-2">
+                <span>Despesas Variáveis</span>
+            </label>
+        </div>
+
+        <div class="flex gap-3 mt-4">
+            <button onclick="confirmarCopiarDespesas()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">
+                Copiar
+            </button>
+            <button onclick="fecharModalCopiarDespesas()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================== MODAL DE IMPORTAÇÃO ========================== -->
+<div id="modalImportacao" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4">
+        <h3 class="text-2xl font-bold mb-4">Confirmar Cópia</h3>
+        <p id="importacaoTexto" class="mb-4 text-gray-700"></p>
+        <div id="importacaoLista" class="mb-6 max-h-60 overflow-y-auto border rounded-lg p-3 bg-gray-50"></div>
+        <div class="flex gap-3">
+            <button onclick="confirmarImportacao()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">
+                Copiar
+            </button>
+            <button onclick="cancelarImportacao()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================== MODAL DE CONFIGURAÇÕES ========================== -->
+<div id="modalConfiguracoes" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-2xl font-bold">Configurações</h3>
+            <button onclick="fecharModalConfiguracoes()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+
+        <div class="mb-4">
+            <label class="block mb-2 font-medium text-gray-600">Percentual de Investimento (%)</label>
+            <input id="configInvestimento" type="number" min="0" max="100" step="1"
+                   class="w-full p-3 border rounded-lg mb-1"
+                   oninput="validarPercentuais()">
+            <p id="configInvestimentoErro" class="error-message hidden"></p>
+        </div>
+
+        <div class="mb-4">
+            <label class="block mb-2 font-medium text-gray-600">Percentual de Lazer/Eventualidades (%)</label>
+            <input id="configLazer" type="number" min="0" max="100" step="1"
+                   class="w-full p-3 border rounded-lg mb-1"
+                   oninput="validarPercentuais()">
+            <p id="configLazerErro" class="error-message hidden"></p>
+        </div>
+
+        <p id="configTotalErro" class="text-red-600 text-sm mb-4 hidden"></p>
+
+        <div class="mb-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input id="configGeracaoAutomatica" type="checkbox" 
+                       class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                <span class="text-gray-700 font-medium">Gerar despesas fixas indeterminadas automaticamente</span>
+            </label>
+            <p class="text-sm text-gray-500 mt-1 ml-7">Quando desabilitado, as despesas fixas indeterminadas não serão criadas automaticamente ao filtrar meses</p>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+            <button onclick="salvarConfiguracoes()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                Salvar
+            </button>
+            <button onclick="fecharModalConfiguracoes()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Cancelar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ========================== MODAL DE CATEGORIAS ========================== -->
+<div id="modalCategorias" class="modal-overlay">
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold mb-4">Gerenciar Categorias</h3>
+        
+        <!-- Abas para Entradas e Despesas -->
+        <div class="flex gap-2 mb-4 border-b">
+            <button id="abaEntradas" onclick="trocarAbaCategorias('entradas')" 
+                    class="px-4 py-2 font-medium border-b-2 border-purple-600 text-purple-600">
+                Entradas
+            </button>
+            <button id="abaDespesas" onclick="trocarAbaCategorias('despesas')" 
+                    class="px-4 py-2 font-medium border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                Despesas
+            </button>
+        </div>
+        
+        <div class="mb-4">
+            <label class="block text-gray-600 font-medium mb-2">Adicionar Nova Categoria</label>
+            <div class="flex gap-2">
+                <input id="novaCategoria" type="text" maxlength="50"
+                       class="flex-1 p-3 border rounded-lg"
+                       placeholder="ex: Salário"
+                       onkeypress="if(event.key === 'Enter') adicionarCategoria()">
+                <button onclick="adicionarCategoria()" 
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                    Adicionar
+                </button>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-600 font-medium mb-2">Categorias Existentes</label>
+            <div id="listaCategorias" class="border rounded-lg p-3 bg-gray-50 max-h-60 overflow-y-auto space-y-2">
+                <!-- Lista será preenchida dinamicamente -->
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="fecharModalCategorias()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+                Fechar
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- ========================== TOAST NOTIFICATIONS ========================== -->
+<div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+
+<!-- ========================== JAVASCRIPT ========================== -->
+<script>
+// ========================= UTILITÁRIOS =========================
+
+// Gerar ID único simples
+function gerarId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Sanitizar HTML para prevenir XSS
+function sanitizar(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
+}
+
+// Formatar valor em Real brasileiro
+function formatarMoeda(valor) {
+    return valor.toLocaleString('pt-BR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+    });
+}
+
+// Converter valor formatado para número
+function converterMoedaParaNumero(valorFormatado) {
+    if (!valorFormatado) return 0;
+    // Remove tudo exceto números e vírgula
+    const valorLimpo = valorFormatado.replace(/[^\d,]/g, '').replace(',', '.');
+    return parseFloat(valorLimpo) || 0;
+}
+
+// Mostrar erro de validação
+function mostrarErro(campoId, mensagemErroId, mensagem) {
+    const campo = document.getElementById(campoId);
+    const erro = document.getElementById(mensagemErroId);
+    
+    if (campo) {
+        campo.classList.remove('input-success', 'border-gray-300');
+        campo.classList.add('input-error');
+    }
+    
+    if (erro) {
+        erro.textContent = mensagem;
+        erro.classList.remove('hidden');
+    }
+}
+
+// Limpar erro de validação
+function limparErro(campoId, mensagemErroId) {
+    const campo = document.getElementById(campoId);
+    const erro = document.getElementById(mensagemErroId);
+    
+    if (campo) {
+        campo.classList.remove('input-error');
+        campo.classList.add('input-success');
+    }
+    
+    if (erro) {
+        erro.classList.add('hidden');
+    }
+}
+
+// Validar nome
+function validarNome(input, erroId) {
+    const valor = input.value.trim();
+    
+    if (valor.length === 0) {
+        mostrarErro(input.id, erroId, 'O nome é obrigatório');
+        return false;
+    }
+    
+    if (valor.length < 2) {
+        mostrarErro(input.id, erroId, 'O nome deve ter pelo menos 2 caracteres');
+        return false;
+    }
+    
+    if (valor.length > 100) {
+        mostrarErro(input.id, erroId, 'O nome deve ter no máximo 100 caracteres');
+        return false;
+    }
+    
+    limparErro(input.id, erroId);
+    return true;
+}
+
+// Aplicar máscara de data (mm/yyyy)
+function aplicarMascaraData(input, erroId) {
+    let valor = input.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+    
+    // Limita a 6 dígitos (mm yyyy)
+    if (valor.length > 6) {
+        valor = valor.substring(0, 6);
+    }
+    
+    // Aplica a máscara
+    if (valor.length >= 2) {
+        valor = valor.substring(0, 2) + '/' + valor.substring(2);
+    }
+    
+    input.value = valor;
+    
+    // Validação em tempo real
+    if (valor.length === 0) {
+        input.classList.remove('input-error', 'input-success');
+        if (erroId) document.getElementById(erroId)?.classList.add('hidden');
+        return;
+    }
+    
+    if (valor.length === 7) {
+        const validacao = validarData(valor);
+        if (validacao.valido) {
+            limparErro(input.id, erroId);
+        } else {
+            mostrarErro(input.id, erroId, validacao.erro);
+        }
+    } else if (valor.length > 0 && valor.length < 7) {
+        if (erroId) {
+            const erro = document.getElementById(erroId);
+            if (erro) {
+                erro.textContent = 'Formato incompleto. Use mm/yyyy';
+                erro.classList.remove('hidden');
+            }
+        }
+        input.classList.remove('input-success');
+        input.classList.add('input-error');
+    }
+}
+
+// Aplicar máscara monetária (R$)
+function aplicarMascaraMoeda(input, erroId) {
+    let valor = input.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+    
+    if (valor.length === 0) {
+        input.value = '';
+        input.classList.remove('input-error', 'input-success');
+        if (erroId) document.getElementById(erroId)?.classList.add('hidden');
+        return;
+    }
+    
+    // Converte para número e formata
+    const numero = parseFloat(valor) / 100; // Divide por 100 para ter centavos
+    const valorFormatado = numero.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    
+    input.value = valorFormatado;
+    
+    // Validação em tempo real
+    if (numero <= 0) {
+        mostrarErro(input.id, erroId, 'O valor deve ser maior que zero');
+        return;
+    }
+    
+    if (numero > 999999999.99) {
+        mostrarErro(input.id, erroId, 'Valor muito alto (máximo: R$ 999.999.999,99)');
+        return;
+    }
+    
+    limparErro(input.id, erroId);
+}
+
+// Validar formato de data mm/yyyy
+function validarData(mes) {
+    const regex = /^(0[1-9]|1[0-2])\/\d{4}$/;
+    if (!regex.test(mes)) {
+        return { valido: false, erro: "Formato inválido. Use mm/yyyy (ex: 12/2025)" };
+    }
+    
+    const [mesNum, ano] = mes.split('/');
+    const mesInt = parseInt(mesNum);
+    const anoInt = parseInt(ano);
+    
+    if (mesInt < 1 || mesInt > 12) {
+        return { valido: false, erro: "Mês deve estar entre 01 e 12" };
+    }
+    
+    if (anoInt < 2000 || anoInt > 2100) {
+        return { valido: false, erro: "Ano deve estar entre 2000 e 2100" };
+    }
+    
+    return { valido: true };
+}
+
+// Validar que a data está dentro do mês especificado
+function validarDataDentroMes(dataInputId, mesInputId, erroId) {
+    const dataInput = document.getElementById(dataInputId);
+    const mesInput = document.getElementById(mesInputId);
+    const erro = document.getElementById(erroId);
+    
+    if (!dataInput || !mesInput) return true;
+    
+    const dataValue = dataInput.value; // formato: yyyy-mm-dd
+    const mesValue = mesInput.value.trim(); // formato: mm/yyyy
+    
+    if (!dataValue) {
+        if (erro) {
+            erro.textContent = 'Selecione uma data';
+            erro.classList.remove('hidden');
+        }
+        dataInput.classList.add('input-error');
+        dataInput.classList.remove('input-success');
+        return false;
+    }
+    
+    if (!mesValue) {
+        if (erro) {
+            erro.textContent = 'Preencha o mês primeiro';
+            erro.classList.remove('hidden');
+        }
+        dataInput.classList.add('input-error');
+        dataInput.classList.remove('input-success');
+        return false;
+    }
+    
+    // Validar formato do mês
+    const validacaoMes = validarData(mesValue);
+    if (!validacaoMes.valido) {
+        if (erro) {
+            erro.textContent = 'Mês inválido. Corrija o campo Mês primeiro';
+            erro.classList.remove('hidden');
+        }
+        dataInput.classList.add('input-error');
+        dataInput.classList.remove('input-success');
+        return false;
+    }
+    
+    // Converter data para objeto Date
+    const dataSelecionada = new Date(dataValue + 'T00:00:00');
+    const [mesStr, anoStr] = mesValue.split('/');
+    const mesNum = parseInt(mesStr);
+    const anoNum = parseInt(anoStr);
+    
+    // Verificar se a data está no mês especificado
+    if (dataSelecionada.getMonth() + 1 !== mesNum || dataSelecionada.getFullYear() !== anoNum) {
+        if (erro) {
+            erro.textContent = `A data deve estar dentro do mês ${mesValue}`;
+            erro.classList.remove('hidden');
+        }
+        dataInput.classList.add('input-error');
+        dataInput.classList.remove('input-success');
+        return false;
+    }
+    
+    // Tudo ok
+    if (erro) {
+        erro.classList.add('hidden');
+    }
+    dataInput.classList.remove('input-error');
+    dataInput.classList.add('input-success');
+    return true;
+}
+
+
+// Mostrar toast de notificação
+function mostrarToast(mensagem, tipo = 'success') {
+    const container = document.getElementById('toastContainer');
+    const cores = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${cores[tipo]} text-white px-6 py-3 rounded-lg shadow-lg`;
+    toast.textContent = mensagem;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Ordenar por data (mês) e depois por valor
+function ordenarDados(array) {
+    return [...array].sort((a, b) => {
+        // Primeiro ordena por mês (ano/mês)
+        const [mesA, anoA] = a.mes.split('/');
+        const [mesB, anoB] = b.mes.split('/');
+        const dataA = new Date(parseInt(anoA), parseInt(mesA) - 1);
+        const dataB = new Date(parseInt(anoB), parseInt(mesB) - 1);
+        
+        if (dataB.getTime() !== dataA.getTime()) {
+            return dataB.getTime() - dataA.getTime(); // Mais recente primeiro
+        }
+        
+        // Se mesma data, ordena por valor (maior primeiro)
+        return b.valor - a.valor;
+    });
+}
+
+
+// ========================= LOCAL STORAGE =========================
+let entradas = [];
+let despesas = [];
+let categoriasEntradas = []; // Lista de categorias para entradas
+let categoriasDespesas = []; // Lista de categorias para despesas
+let filtroCategoriaEntrada = "todas"; // todas, ou nome da categoria
+let filtroTipoDespesa = "todas"; // todas, fixa, variavel
+let filtroCategoriaDespesa = "todas"; // todas, ou nome da categoria
+let percentualInvestimento = 70; // Percentual padrão para investimento
+let percentualLazer = 30; // Percentual padrão para lazer
+let geracaoAutomaticaAtiva = true; // Geração automática de despesas fixas indeterminadas ativada por padrão
+
+// Carregar dados com tratamento de erro
+function carregarDados() {
+    try {
+        const entradasStr = localStorage.getItem("entradas");
+        const despesasStr = localStorage.getItem("despesas");
+        const categoriasEntradasStr = localStorage.getItem("categoriasEntradas");
+        const categoriasDespesasStr = localStorage.getItem("categoriasDespesas");
+        // Migração: se existir categorias antigas, migrar para despesas
+        const categoriasStr = localStorage.getItem("categorias");
+        
+        entradas = entradasStr ? JSON.parse(entradasStr) : [];
+        despesas = despesasStr ? JSON.parse(despesasStr) : [];
+        
+        // Carregar categorias separadas
+        categoriasEntradas = categoriasEntradasStr ? JSON.parse(categoriasEntradasStr) : [];
+        categoriasDespesas = categoriasDespesasStr ? JSON.parse(categoriasDespesasStr) : [];
+        
+        // Migração: se existir categorias antigas, migrar para despesas
+        if (categoriasStr && categoriasDespesas.length === 0) {
+            const categoriasAntigas = JSON.parse(categoriasStr);
+            categoriasDespesas = categoriasAntigas;
+            salvarCategorias();
+        }
+        
+        // Se não houver categorias de entradas, criar algumas padrão
+        if (categoriasEntradas.length === 0) {
+            categoriasEntradas = [];
+            salvarCategorias();
+        }
+        
+        // Se não houver categorias de despesas, criar algumas padrão
+        if (categoriasDespesas.length === 0) {
+            categoriasDespesas = [];
+            salvarCategorias();
+        }
+        
+        // Migrar dados antigos sem ID para ter ID e converter nome para categoria
+        entradas = entradas.map(e => {
+            const entrada = e.id ? e : { ...e, id: gerarId() };
+            // Se tiver nome mas não tiver categoria, migrar nome para categoria
+            if (entrada.nome && !entrada.categoria) {
+                entrada.categoria = entrada.nome;
+                delete entrada.nome;
+            }
+            // Se não tiver nem nome nem categoria, deixar categoria vazia
+            if (!entrada.categoria) {
+                entrada.categoria = "";
+            }
+            return entrada;
+        });
+        // Migrar despesas antigas: adicionar ID, tipo padrão "variavel" e categoria vazia se não existir
+        despesas = despesas.map(d => {
+            const item = d.id ? d : { ...d, id: gerarId() };
+            if (!item.tipo) {
+                item.tipo = "variavel"; // Tipo padrão para dados antigos
+            }
+            if (!item.categoria) {
+                item.categoria = ""; // Categoria vazia para dados antigos
+            }
+            // Adicionar campos de despesa fixa se não existirem
+            if (item.tipoFixa === undefined) {
+                item.tipoFixa = null;
+            }
+            // Migrar campo gerarAutomaticamente: se for despesa fixa indeterminada e não tiver o campo, definir como true
+            if (item.tipo === "fixa" && item.tipoFixa === "indeterminado" && item.gerarAutomaticamente === undefined) {
+                item.gerarAutomaticamente = true;
+            }
+            // Migrar campo descricao: se não existir, definir como string vazia
+            if (item.descricao === undefined) {
+                item.descricao = "";
+            }
+            if (item.dataInicio === undefined) {
+                item.dataInicio = null;
+            }
+            if (item.dataFim === undefined) {
+                item.dataFim = null;
+            }
+            return item;
+        });
+        
+        salvar();
+        atualizarSelectsCategorias();
+        
+        // Carregar configurações
+        carregarConfiguracoes();
+    } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        mostrarToast("Erro ao carregar dados salvos", "error");
+        entradas = [];
+        despesas = [];
+        categorias = [];
+    }
+}
+
+// Salvar dados com tratamento de erro
+function salvar() {
+    try {
+    localStorage.setItem("entradas", JSON.stringify(entradas));
+    localStorage.setItem("despesas", JSON.stringify(despesas));
+    } catch (error) {
+        console.error("Erro ao salvar dados:", error);
+        mostrarToast("Erro ao salvar dados. Verifique se o modo privado está desativado.", "error");
+    }
+}
+
+// Salvar categorias
+function salvarCategorias() {
+    try {
+        localStorage.setItem("categoriasEntradas", JSON.stringify(categoriasEntradas));
+        localStorage.setItem("categoriasDespesas", JSON.stringify(categoriasDespesas));
+    } catch (error) {
+        console.error("Erro ao salvar categorias:", error);
+    }
+}
+
+// Variável para controlar qual aba está ativa no modal
+let tipoCategoriaAtual = 'entradas'; // 'entradas' ou 'despesas'
+
+// Trocar aba no modal de categorias
+function trocarAbaCategorias(tipo) {
+    tipoCategoriaAtual = tipo;
+    
+    // Atualizar visual das abas
+    const abaEntradas = document.getElementById("abaEntradas");
+    const abaDespesas = document.getElementById("abaDespesas");
+    
+    if (tipo === 'entradas') {
+        abaEntradas.classList.add("border-purple-600", "text-purple-600");
+        abaEntradas.classList.remove("border-transparent", "text-gray-600");
+        abaDespesas.classList.remove("border-purple-600", "text-purple-600");
+        abaDespesas.classList.add("border-transparent", "text-gray-600");
+    } else {
+        abaDespesas.classList.add("border-purple-600", "text-purple-600");
+        abaDespesas.classList.remove("border-transparent", "text-gray-600");
+        abaEntradas.classList.remove("border-purple-600", "text-purple-600");
+        abaEntradas.classList.add("border-transparent", "text-gray-600");
+    }
+    
+    // Atualizar placeholder do input
+    const input = document.getElementById("novaCategoria");
+    if (tipo === 'entradas') {
+        input.placeholder = "ex: Salário";
+    } else {
+        input.placeholder = "ex: Alimentação";
+    }
+    
+    // Atualizar lista
+    renderizarListaCategorias();
+}
+
+// Atualizar selects de categoria
+function atualizarSelectsCategorias() {
+    const selectDespesa = document.getElementById("despesaCategoria");
+    const selectEntrada = document.getElementById("entradaCategoria");
+    const selectModal = document.getElementById("modalCategoria");
+    const selectModalEntrada = document.getElementById("modalEntradaCategoria");
+    const selectModalDespesa = document.getElementById("modalDespesaCategoria");
+    
+    if (selectDespesa) {
+        const valorAtual = selectDespesa.value;
+        selectDespesa.innerHTML = '<option value="">Nenhuma</option>';
+        categoriasDespesas.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectDespesa.appendChild(option);
+        });
+        selectDespesa.value = valorAtual;
+    }
+    
+    if (selectEntrada) {
+        const valorAtual = selectEntrada.value;
+        selectEntrada.innerHTML = '<option value="">Nenhuma</option>';
+        categoriasEntradas.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectEntrada.appendChild(option);
+        });
+        selectEntrada.value = valorAtual;
+    }
+    
+    if (selectModalEntrada) {
+        const valorAtual = selectModalEntrada.value;
+        selectModalEntrada.innerHTML = '<option value="">Nenhuma</option>';
+        categoriasEntradas.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectModalEntrada.appendChild(option);
+        });
+        selectModalEntrada.value = valorAtual;
+    }
+    
+    if (selectModalDespesa) {
+        const valorAtual = selectModalDespesa.value;
+        selectModalDespesa.innerHTML = '<option value="">Nenhuma</option>';
+        categoriasDespesas.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectModalDespesa.appendChild(option);
+        });
+        selectModalDespesa.value = valorAtual;
+    }
+    
+    if (selectModal) {
+        const valorAtual = selectModal.value;
+        selectModal.innerHTML = '<option value="">Nenhuma</option>';
+        // O select modal depende do contexto (entrada ou despesa)
+        // Será atualizado dinamicamente quando necessário
+        const categoriasParaModal = tipoItemEditar === 'entrada' ? categoriasEntradas : categoriasDespesas;
+        categoriasParaModal.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectModal.appendChild(option);
+        });
+        selectModal.value = valorAtual;
+    }
+    
+    // Atualizar filtro de categorias também
+    atualizarFiltroCategorias();
+}
+
+
+// ========================= ADICIONAR ENTRADA =========================
+function addEntrada() {
+    const categoriaSelect = document.getElementById("entradaCategoria");
+    const valorInput = document.getElementById("entradaValor");
+    const mesInput = document.getElementById("entradaMes");
+    
+    const categoria = categoriaSelect.value.trim();
+    const valorFormatado = valorInput.value;
+    let mes = mesInput.value.trim();
+
+    // Converter e validar valor
+    const valor = converterMoedaParaNumero(valorFormatado);
+    if (valor <= 0) {
+        mostrarErro('entradaValor', 'entradaValorErro', 'O valor deve ser maior que zero');
+        mostrarToast("Corrija os erros no campo Valor", "error");
+        valorInput.focus();
+        return;
+    }
+    limparErro('entradaValor', 'entradaValorErro');
+
+    // Se o mês estiver vazio → usar mês atual
+    if (!mes) {
+        const hoje = new Date();
+        const m = String(hoje.getMonth() + 1).padStart(2, '0');
+        const y = hoje.getFullYear();
+        mes = `${m}/${y}`;
+    } else {
+        // Validar formato de data
+        const validacaoData = validarData(mes);
+        if (!validacaoData.valido) {
+            mostrarErro('entradaMes', 'entradaMesErro', validacaoData.erro);
+            mostrarToast("Corrija os erros no campo Mês", "error");
+            mesInput.focus();
+            return;
+        }
+        limparErro('entradaMes', 'entradaMesErro');
+    }
+
+    // Validar data
+    const dataInput = document.getElementById("entradaData");
+    const data = dataInput.value; // formato: yyyy-mm-dd
+    
+    if (!data) {
+        mostrarErro('entradaData', 'entradaDataErro', 'Selecione uma data');
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    if (!validarDataDentroMes('entradaData', 'entradaMes', 'entradaDataErro')) {
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    // Converter data para formato dd/mm/yyyy
+    const dataObj = new Date(data + 'T00:00:00');
+    const dia = String(dataObj.getDate()).padStart(2, '0');
+    const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const anoData = dataObj.getFullYear();
+    const dataFormatada = `${dia}/${mesData}/${anoData}`;
+
+    entradas.push({ 
+        id: gerarId(),
+        categoria: categoria || "", 
+        valor: valor, 
+        mes,
+        data: dataFormatada
+    });
+
+    salvar();
+    render();
+    
+    // Limpar formulário
+    categoriaSelect.value = "";
+    valorInput.value = "";
+    mesInput.value = obterMesAtual(); // Resetar para mês atual
+    dataInput.value = obterDataAtual(); // Resetar para data atual
+    valorInput.classList.remove('input-success');
+    mesInput.classList.remove('input-success');
+    dataInput.classList.remove('input-success');
+    
+    mostrarToast("Entrada adicionada com sucesso!", "success");
+    categoriaSelect.focus();
+}
+
+
+// ========================= ALTERAR MÊS COM SETAS =========================
+function alterarMesEntrada(direcao) {
+    const input = document.getElementById("entradaMes");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    aplicarMascaraData(input, 'entradaMesErro');
+}
+
+function alterarMesDespesa(direcao) {
+    const input = document.getElementById("despesaMes");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    aplicarMascaraData(input, 'despesaMesErro');
+}
+
+function alterarMes(mesAtual, direcao) {
+    // direcao: -1 para mês anterior, 1 para próximo mês
+    if (!mesAtual || mesAtual.length !== 7) {
+        return obterMesAtual();
+    }
+    
+    const [mesStr, anoStr] = mesAtual.split('/');
+    let mes = parseInt(mesStr);
+    let ano = parseInt(anoStr);
+    
+    mes += direcao;
+    
+    if (mes < 1) {
+        mes = 12;
+        ano -= 1;
+    } else if (mes > 12) {
+        mes = 1;
+        ano += 1;
+    }
+    
+    return `${String(mes).padStart(2, '0')}/${ano}`;
+}
+
+// ========================= ATUALIZAR CAMPOS DESPESA =========================
+function atualizarCamposDespesa() {
+    const tipo = document.getElementById("despesaTipo").value;
+    const categoriaLabel = document.getElementById("despesaCategoriaLabel");
+    const categoriaSelect = document.getElementById("despesaCategoria");
+    const tipoFixaContainer = document.getElementById("tipoFixaContainer");
+    const despesaDeterminadaContainer = document.getElementById("despesaDeterminadaContainer");
+    
+    if (tipo === "fixa") {
+        // Para fixas: categoria é obrigatória
+        categoriaLabel.innerHTML = 'Categoria <span class="text-red-500 text-sm">*</span>';
+        categoriaSelect.required = true;
+        // Mostrar select de tipo de despesa fixa
+        tipoFixaContainer.style.display = "block";
+        
+        // Verificar se é determinado para mostrar campos de data
+        const tipoFixa = document.getElementById("despesaTipoFixa").value;
+        if (tipoFixa === "determinado") {
+            despesaDeterminadaContainer.style.display = "block";
+        } else {
+            despesaDeterminadaContainer.style.display = "none";
+        }
+    } else {
+        // Para variáveis: categoria opcional
+        categoriaLabel.innerHTML = 'Categoria <span class="text-gray-400 text-sm">(opcional)</span>';
+        categoriaSelect.required = false;
+        // Ocultar campos de despesa fixa
+        tipoFixaContainer.style.display = "none";
+        despesaDeterminadaContainer.style.display = "none";
+    }
+}
+
+// ========================= ADICIONAR DESPESA =========================
+function addDespesa() {
+    const tipo = document.getElementById("despesaTipo").value;
+    const valorInput = document.getElementById("despesaValor");
+    const mesInput = document.getElementById("despesaMes");
+    const categoriaSelect = document.getElementById("despesaCategoria");
+    
+    const valorFormatado = valorInput.value;
+    let mes = mesInput.value.trim();
+    const categoria = categoriaSelect.value;
+
+    // Validação baseada no tipo
+    let tipoFixa = null;
+    let dataInicio = null;
+    let dataFim = null;
+    
+    if (tipo === "fixa") {
+        // Para fixas: categoria é obrigatória e vira o nome
+        if (!categoria) {
+            mostrarErro('despesaCategoria', 'despesaCategoriaErro', 'A categoria é obrigatória para despesas fixas');
+            mostrarToast("Selecione uma categoria para despesas fixas", "error");
+            categoriaSelect.focus();
+            return;
+        }
+        limparErro('despesaCategoria', 'despesaCategoriaErro');
+        
+        // Obter tipo de despesa fixa
+        tipoFixa = document.getElementById("despesaTipoFixa").value;
+        
+        // Se for determinado, validar datas
+        if (tipoFixa === "determinado") {
+            dataInicio = document.getElementById("despesaDataInicio").value;
+            dataFim = document.getElementById("despesaDataFim").value;
+            
+            if (!dataInicio || !dataFim) {
+                mostrarToast("Preencha as datas de início e fim para despesas determinadas", "error");
+                return;
+            }
+            
+            // Validar que data fim é posterior à data início
+            const inicio = new Date(dataInicio);
+            const fim = new Date(dataFim);
+            if (fim < inicio) {
+                mostrarToast("A data de fim deve ser posterior à data de início", "error");
+                return;
+            }
+        }
+    }
+
+    // Converter e validar valor
+    const valor = converterMoedaParaNumero(valorFormatado);
+    if (valor <= 0) {
+        mostrarErro('despesaValor', 'despesaValorErro', 'O valor deve ser maior que zero');
+        mostrarToast("Corrija os erros no campo Valor", "error");
+        valorInput.focus();
+        return;
+    }
+    limparErro('despesaValor', 'despesaValorErro');
+
+    if (!mes) {
+        const hoje = new Date();
+        const m = String(hoje.getMonth() + 1).padStart(2, '0');
+        const y = hoje.getFullYear();
+        mes = `${m}/${y}`;
+    } else {
+        // Validar formato de data
+        const validacaoData = validarData(mes);
+        if (!validacaoData.valido) {
+            mostrarErro('despesaMes', 'despesaMesErro', validacaoData.erro);
+            mostrarToast("Corrija os erros no campo Mês", "error");
+            mesInput.focus();
+            return;
+        }
+        limparErro('despesaMes', 'despesaMesErro');
+    }
+
+    // Validar data
+    const dataInput = document.getElementById("despesaData");
+    const data = dataInput.value; // formato: yyyy-mm-dd
+    
+    if (!data) {
+        mostrarErro('despesaData', 'despesaDataErro', 'Selecione uma data');
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    if (!validarDataDentroMes('despesaData', 'despesaMes', 'despesaDataErro')) {
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    // Converter data para formato dd/mm/yyyy
+    const dataObj = new Date(data + 'T00:00:00');
+    const dia = String(dataObj.getDate()).padStart(2, '0');
+    const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const anoData = dataObj.getFullYear();
+    const dataFormatada = `${dia}/${mesData}/${anoData}`;
+
+    // Para fixas: categoria é o nome. Para variáveis: categoria também é o nome (já que removemos o campo nome)
+    const nome = categoria || "";
+
+    despesas.push({ 
+        id: gerarId(),
+        nome: sanitizar(nome), 
+        valor: valor, 
+        tipo: tipo,
+        categoria: categoria || "",
+        mes,
+        data: dataFormatada
+    });
+
+    salvar();
+    render();
+    
+    // Limpar formulário
+    valorInput.value = "";
+    mesInput.value = obterMesAtual(); // Resetar para mês atual
+    dataInput.value = obterDataAtual(); // Resetar para data atual
+    categoriaSelect.value = "";
+    document.getElementById("despesaTipo").value = "fixa"; // Reset para fixa
+    atualizarCamposDespesa(); // Atualizar campos
+    valorInput.classList.remove('input-success');
+    mesInput.classList.remove('input-success');
+    dataInput.classList.remove('input-success');
+    
+    mostrarToast("Despesa adicionada com sucesso!", "success");
+    categoriaSelect.focus();
+}
+
+// ========================= MODAIS ADICIONAR ENTRADA/DESPESA =========================
+function abrirModalAdicionarEntrada() {
+    // Inicializar campos
+    document.getElementById("modalEntradaCategoria").value = "";
+    document.getElementById("modalEntradaValor").value = "";
+    document.getElementById("modalEntradaMes").value = obterMesAtual();
+    document.getElementById("modalEntradaData").value = obterDataAtual();
+    
+    // Limpar erros
+    limparErro('modalEntradaCategoria', 'modalEntradaCategoriaErro');
+    limparErro('modalEntradaValor', 'modalEntradaValorErro');
+    limparErro('modalEntradaMes', 'modalEntradaMesErro');
+    limparErro('modalEntradaData', 'modalEntradaDataErro');
+    
+    // Atualizar selects
+    atualizarSelectsCategorias();
+    
+    // Abrir modal
+    document.getElementById("modalAdicionarEntrada").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("modalEntradaCategoria").focus();
+}
+
+function fecharModalAdicionarEntrada() {
+    document.getElementById("modalAdicionarEntrada").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+function abrirModalAdicionarDespesa() {
+    // Inicializar campos
+    document.getElementById("modalDespesaTipo").value = "fixa";
+    document.getElementById("modalDespesaTipoFixa").value = "indeterminado";
+    document.getElementById("modalDespesaCategoria").value = "";
+    document.getElementById("modalDespesaValor").value = "";
+    document.getElementById("modalDespesaMes").value = obterMesAtual();
+    document.getElementById("modalDespesaData").value = obterDataAtual();
+    
+    // Limpar campos de data (serão preenchidos automaticamente se for determinado)
+    document.getElementById("modalDespesaDataInicio").value = "";
+    document.getElementById("modalDespesaDataFim").value = "";
+    document.getElementById("modalDespesaDescricao").value = "";
+    
+    // Atualizar campos visuais para mostrar os campos de despesa fixa
+    atualizarCamposDespesaModal();
+    
+    // Limpar erros
+    limparErro('modalDespesaCategoria', 'modalDespesaCategoriaErro');
+    limparErro('modalDespesaValor', 'modalDespesaValorErro');
+    limparErro('modalDespesaMes', 'modalDespesaMesErro');
+    limparErro('modalDespesaData', 'modalDespesaDataErro');
+    limparErro('modalDespesaDataInicio', 'modalDespesaDataInicioErro');
+    limparErro('modalDespesaDataFim', 'modalDespesaDataFimErro');
+    
+    // Atualizar campos e selects
+    atualizarCamposDespesaModal();
+    atualizarSelectsCategorias();
+    
+    // Abrir modal
+    document.getElementById("modalAdicionarDespesa").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("modalDespesaCategoria").focus();
+}
+
+function fecharModalAdicionarDespesa() {
+    document.getElementById("modalAdicionarDespesa").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+function alterarMesEntradaModal(direcao) {
+    const input = document.getElementById("modalEntradaMes");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    aplicarMascaraData(input, 'modalEntradaMesErro');
+    if(document.getElementById('modalEntradaData').value) {
+        validarDataDentroMes('modalEntradaData', 'modalEntradaMes', 'modalEntradaDataErro');
+    }
+}
+
+function alterarMesFiltro(direcao) {
+    const input = document.getElementById("filtroMes");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    aplicarMascaraData(input, 'filtroMesErro');
+}
+
+function alterarMesDespesaModal(direcao) {
+    const input = document.getElementById("modalDespesaMes");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    aplicarMascaraData(input, 'modalDespesaMesErro');
+    if(document.getElementById('modalDespesaData').value) {
+        validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro');
+    }
+}
+
+function atualizarCamposDespesaModal() {
+    const tipo = document.getElementById("modalDespesaTipo").value;
+    const label = document.getElementById("modalDespesaCategoriaLabel");
+    const tipoFixaContainer = document.getElementById("modalDespesaTipoFixaContainer");
+    
+    // Verificar qual modal está aberto e buscar elementos dentro do contexto correto
+    const modalAdicionar = document.getElementById("modalAdicionarDespesa");
+    const modalEdicao = document.getElementById("modalEdicao");
+    
+    let despesaDeterminadaContainer;
+    let gerarAutomaticamenteContainer;
+    let dataInicio;
+    let dataFim;
+    
+    // Se o modal de adicionar estiver aberto, usar os elementos desse modal
+    if (modalAdicionar && modalAdicionar.classList.contains("active")) {
+        despesaDeterminadaContainer = modalAdicionar.querySelector("#modalDespesaDeterminadaContainer");
+        gerarAutomaticamenteContainer = modalAdicionar.querySelector("#modalDespesaGerarAutomaticamenteContainer");
+        dataInicio = modalAdicionar.querySelector("#modalDespesaDataInicio");
+        dataFim = modalAdicionar.querySelector("#modalDespesaDataFim");
+    } else if (modalEdicao && modalEdicao.classList.contains("active")) {
+        // Se o modal de edição estiver aberto, usar os elementos desse modal
+        despesaDeterminadaContainer = modalEdicao.querySelector("#modalDespesaDeterminadaContainer");
+        gerarAutomaticamenteContainer = modalEdicao.querySelector("#modalGerarAutomaticamenteContainer");
+        dataInicio = modalEdicao.querySelector("#modalDataInicio");
+        dataFim = modalEdicao.querySelector("#modalDataFim");
+    } else {
+        // Por padrão, usar os elementos do modal de adicionar
+        despesaDeterminadaContainer = modalAdicionar ? modalAdicionar.querySelector("#modalDespesaDeterminadaContainer") : document.getElementById("modalDespesaDeterminadaContainer");
+        gerarAutomaticamenteContainer = modalAdicionar ? modalAdicionar.querySelector("#modalDespesaGerarAutomaticamenteContainer") : document.getElementById("modalDespesaGerarAutomaticamenteContainer");
+        dataInicio = modalAdicionar ? modalAdicionar.querySelector("#modalDespesaDataInicio") : document.getElementById("modalDespesaDataInicio");
+        dataFim = modalAdicionar ? modalAdicionar.querySelector("#modalDespesaDataFim") : document.getElementById("modalDespesaDataFim");
+    }
+    
+    if (tipo === "fixa") {
+        label.innerHTML = 'Categoria <span class="text-red-500">*</span>';
+        // Mostrar select de tipo de despesa fixa
+        if (tipoFixaContainer) tipoFixaContainer.style.display = "block";
+        
+        // Verificar se é determinado para mostrar campos de data
+        const tipoFixa = document.getElementById("modalDespesaTipoFixa").value;
+        
+        if (tipoFixa === "determinado") {
+            if (despesaDeterminadaContainer) {
+                despesaDeterminadaContainer.style.display = "block";
+            }
+            if (gerarAutomaticamenteContainer) {
+                gerarAutomaticamenteContainer.style.display = "block"; // Mostrar checkbox também para determinadas
+            }
+            
+            // Preencher datas com a data de hoje se estiverem vazias
+            if (dataInicio && !dataInicio.value) {
+                dataInicio.value = obterDataAtual();
+            }
+            if (dataFim && !dataFim.value) {
+                dataFim.value = obterDataAtual();
+            }
+            // Atualizar min da data fim para não permitir datas menores que a data início
+            atualizarMinDataFim();
+        } else {
+            if (despesaDeterminadaContainer) {
+                despesaDeterminadaContainer.style.display = "none";
+            }
+            if (gerarAutomaticamenteContainer) {
+                gerarAutomaticamenteContainer.style.display = "block"; // Mostrar checkbox para indeterminadas
+            }
+        }
+    } else {
+        label.innerHTML = 'Categoria <span class="text-gray-400 text-sm">(opcional)</span>';
+        // Ocultar campos de despesa fixa
+        if (tipoFixaContainer) tipoFixaContainer.style.display = "none";
+        if (despesaDeterminadaContainer) despesaDeterminadaContainer.style.display = "none";
+        if (gerarAutomaticamenteContainer) gerarAutomaticamenteContainer.style.display = "none";
+    }
+}
+
+// Função para atualizar o min da data fim baseado na data início
+function atualizarMinDataFim() {
+    // Verificar qual modal está aberto
+    const modalAdicionar = document.getElementById("modalAdicionarDespesa");
+    const modalEdicao = document.getElementById("modalEdicao");
+    
+    let dataInicio, dataFim;
+    
+    if (modalAdicionar && modalAdicionar.classList.contains("active")) {
+        dataInicio = modalAdicionar.querySelector("#modalDespesaDataInicio");
+        dataFim = modalAdicionar.querySelector("#modalDespesaDataFim");
+    } else if (modalEdicao && modalEdicao.classList.contains("active")) {
+        dataInicio = modalEdicao.querySelector("#modalDataInicio");
+        dataFim = modalEdicao.querySelector("#modalDataFim");
+    } else {
+        // Por padrão, tentar o modal de adicionar
+        dataInicio = document.getElementById("modalDespesaDataInicio");
+        dataFim = document.getElementById("modalDespesaDataFim");
+    }
+    
+    if (dataInicio && dataFim && dataInicio.value) {
+        dataFim.min = dataInicio.value;
+        // Se a data fim for menor que a data início, ajustar para a data início
+        if (dataFim.value && dataFim.value < dataInicio.value) {
+            dataFim.value = dataInicio.value;
+        }
+    }
+}
+
+function addEntradaModal() {
+    const categoriaSelect = document.getElementById("modalEntradaCategoria");
+    const valorInput = document.getElementById("modalEntradaValor");
+    const mesInput = document.getElementById("modalEntradaMes");
+    
+    const categoria = categoriaSelect.value.trim();
+    const valorFormatado = valorInput.value;
+    let mes = mesInput.value.trim();
+
+    // Converter e validar valor
+    const valor = converterMoedaParaNumero(valorFormatado);
+    if (valor <= 0) {
+        mostrarErro('modalEntradaValor', 'modalEntradaValorErro', 'O valor deve ser maior que zero');
+        mostrarToast("Corrija os erros no campo Valor", "error");
+        valorInput.focus();
+        return;
+    }
+    limparErro('modalEntradaValor', 'modalEntradaValorErro');
+
+    // Se o mês estiver vazio → usar mês atual
+    if (!mes) {
+        const hoje = new Date();
+        const m = String(hoje.getMonth() + 1).padStart(2, '0');
+        const y = hoje.getFullYear();
+        mes = `${m}/${y}`;
+    } else {
+        // Validar formato de data
+        const validacaoData = validarData(mes);
+        if (!validacaoData.valido) {
+            mostrarErro('modalEntradaMes', 'modalEntradaMesErro', validacaoData.erro);
+            mostrarToast("Corrija os erros no campo Mês", "error");
+            mesInput.focus();
+            return;
+        }
+        limparErro('modalEntradaMes', 'modalEntradaMesErro');
+    }
+
+    // Validar data
+    const dataInput = document.getElementById("modalEntradaData");
+    const data = dataInput.value; // formato: yyyy-mm-dd
+    
+    if (!data) {
+        mostrarErro('modalEntradaData', 'modalEntradaDataErro', 'Selecione uma data');
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    if (!validarDataDentroMes('modalEntradaData', 'modalEntradaMes', 'modalEntradaDataErro')) {
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    // Converter data para formato dd/mm/yyyy
+    const dataObj = new Date(data + 'T00:00:00');
+    const dia = String(dataObj.getDate()).padStart(2, '0');
+    const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const anoData = dataObj.getFullYear();
+    const dataFormatada = `${dia}/${mesData}/${anoData}`;
+
+    entradas.push({ 
+        id: gerarId(),
+        categoria: categoria || "", 
+        valor: valor, 
+        mes,
+        data: dataFormatada
+    });
+
+    salvar();
+    render();
+    
+    // Fechar modal
+    fecharModalAdicionarEntrada();
+    
+    mostrarToast("Entrada adicionada com sucesso!", "success");
+}
+
+function addDespesaModal() {
+    const tipo = document.getElementById("modalDespesaTipo").value;
+    const valorInput = document.getElementById("modalDespesaValor");
+    const mesInput = document.getElementById("modalDespesaMes");
+    const categoriaSelect = document.getElementById("modalDespesaCategoria");
+    
+    const valorFormatado = valorInput.value;
+    let mes = mesInput.value.trim();
+    const categoria = categoriaSelect.value;
+
+    // Validação baseada no tipo
+    let tipoFixa = null;
+    let dataInicio = null;
+    let dataFim = null;
+    
+    if (tipo === "fixa") {
+        // Para fixas: categoria é obrigatória e vira o nome
+        if (!categoria) {
+            mostrarErro('modalDespesaCategoria', 'modalDespesaCategoriaErro', 'A categoria é obrigatória para despesas fixas');
+            mostrarToast("Selecione uma categoria para despesas fixas", "error");
+            categoriaSelect.focus();
+            return;
+        }
+        limparErro('modalDespesaCategoria', 'modalDespesaCategoriaErro');
+        
+        // Obter tipo de despesa fixa
+        tipoFixa = document.getElementById("modalDespesaTipoFixa").value;
+        
+        // Se for determinado, validar datas
+        if (tipoFixa === "determinado") {
+            dataInicio = document.getElementById("modalDespesaDataInicio").value;
+            dataFim = document.getElementById("modalDespesaDataFim").value;
+            
+            if (!dataInicio || !dataFim) {
+                mostrarToast("Preencha as datas de início e fim para despesas determinadas", "error");
+                return;
+            }
+            
+            // Validar que data fim é posterior à data início
+            const inicio = new Date(dataInicio);
+            const fim = new Date(dataFim);
+            if (fim < inicio) {
+                mostrarToast("A data de fim deve ser posterior à data de início", "error");
+                return;
+            }
+        }
+    }
+
+    // Converter e validar valor
+    const valor = converterMoedaParaNumero(valorFormatado);
+    if (valor <= 0) {
+        mostrarErro('modalDespesaValor', 'modalDespesaValorErro', 'O valor deve ser maior que zero');
+        mostrarToast("Corrija os erros no campo Valor", "error");
+        valorInput.focus();
+        return;
+    }
+    limparErro('modalDespesaValor', 'modalDespesaValorErro');
+
+    if (!mes) {
+        const hoje = new Date();
+        const m = String(hoje.getMonth() + 1).padStart(2, '0');
+        const y = hoje.getFullYear();
+        mes = `${m}/${y}`;
+    } else {
+        // Validar formato de data
+        const validacaoData = validarData(mes);
+        if (!validacaoData.valido) {
+            mostrarErro('modalDespesaMes', 'modalDespesaMesErro', validacaoData.erro);
+            mostrarToast("Corrija os erros no campo Mês", "error");
+            mesInput.focus();
+            return;
+        }
+        limparErro('modalDespesaMes', 'modalDespesaMesErro');
+    }
+
+    // Validar data
+    const dataInput = document.getElementById("modalDespesaData");
+    const data = dataInput.value; // formato: yyyy-mm-dd
+    
+    if (!data) {
+        mostrarErro('modalDespesaData', 'modalDespesaDataErro', 'Selecione uma data');
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    if (!validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro')) {
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    // Converter data para formato dd/mm/yyyy
+    const dataObj = new Date(data + 'T00:00:00');
+    const dia = String(dataObj.getDate()).padStart(2, '0');
+    const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const anoData = dataObj.getFullYear();
+    const dataFormatada = `${dia}/${mesData}/${anoData}`;
+
+    // Para fixas: categoria é o nome. Para variáveis: categoria também é o nome (já que removemos o campo nome)
+    const nome = categoria || "";
+
+    // Obter valor do checkbox de geração automática (para fixas indeterminadas e determinadas)
+    let gerarAutomaticamente = true; // Padrão
+    if (tipo === "fixa") {
+        const checkboxGerar = document.getElementById("modalDespesaGerarAutomaticamente");
+        if (checkboxGerar) {
+            gerarAutomaticamente = checkboxGerar.checked;
+        }
+    }
+
+    // Obter descrição
+    const descricao = document.getElementById("modalDespesaDescricao").value.trim() || "";
+
+    despesas.push({ 
+        id: gerarId(),
+        nome: sanitizar(nome), 
+        valor: valor, 
+        tipo: tipo,
+        tipoFixa: tipoFixa || null,
+        dataInicio: dataInicio || null,
+        dataFim: dataFim || null,
+        gerarAutomaticamente: tipo === "fixa" ? gerarAutomaticamente : undefined,
+        categoria: categoria || "",
+        descricao: descricao || "",
+        mes,
+        data: dataFormatada
+    });
+
+    salvar();
+    render();
+    
+    // Fechar modal
+    fecharModalAdicionarDespesa();
+    
+    mostrarToast("Despesa adicionada com sucesso!", "success");
+}
+
+// ========================= GERENCIAR SCROLL DO BODY =========================
+let scrollPosition = 0;
+
+function bloquearScrollBody() {
+    scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+    document.body.classList.add("modal-open");
+    document.body.style.top = `-${scrollPosition}px`;
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+}
+
+function desbloquearScrollBody() {
+    document.body.classList.remove("modal-open");
+    document.body.style.top = "";
+    document.body.style.position = "";
+    document.body.style.width = "";
+    document.body.style.overflow = "";
+    window.scrollTo(0, scrollPosition);
+}
+
+// ========================= REMOVER ITEM =========================
+let itemParaExcluir = null;
+let tipoItemExcluir = null;
+
+function removerEntrada(id) {
+    const item = entradas.find(e => e.id === id);
+    if (!item) return;
+    
+    itemParaExcluir = id;
+    tipoItemExcluir = 'entrada';
+    
+    const categoriaTexto = item.categoria ? item.categoria : "sem categoria";
+    document.getElementById("confirmacaoTexto").textContent = 
+        `Deseja realmente excluir a entrada "${categoriaTexto}" de R$ ${formatarMoeda(item.valor)}?`;
+    document.getElementById("modalConfirmacao").classList.add("active");
+    bloquearScrollBody();
+}
+
+function removerDespesa(id) {
+    const item = despesas.find(d => d.id === id);
+    if (!item) return;
+    
+    itemParaExcluir = id;
+    tipoItemExcluir = 'despesa';
+    
+    document.getElementById("confirmacaoTexto").textContent = 
+        `Deseja realmente excluir a despesa "${item.nome}" de R$ ${formatarMoeda(item.valor)}?`;
+    document.getElementById("modalConfirmacao").classList.add("active");
+    bloquearScrollBody();
+}
+
+function confirmarExclusao() {
+    if (tipoItemExcluir === 'entrada') {
+        entradas = entradas.filter(e => e.id !== itemParaExcluir);
+        mostrarToast("Entrada excluída com sucesso!", "success");
+    } else if (tipoItemExcluir === 'despesa') {
+        despesas = despesas.filter(d => d.id !== itemParaExcluir);
+        mostrarToast("Despesa excluída com sucesso!", "success");
+    }
+    
+    salvar();
+    render();
+    itemParaExcluir = null;
+    tipoItemExcluir = null;
+    document.getElementById("modalConfirmacao").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+function cancelarExclusao() {
+    itemParaExcluir = null;
+    tipoItemExcluir = null;
+    document.getElementById("modalConfirmacao").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+// ========================= RESETAR TUDO =========================
+function abrirModalReset() {
+    document.getElementById("modalReset").classList.add("active");
+    bloquearScrollBody();
+}
+
+function confirmarReset() {
+    // Limpar todos os dados
+    entradas = [];
+    despesas = [];
+    categoriasEntradas = [];
+    categoriasDespesas = [];
+    
+    // Limpar localStorage completamente
+    localStorage.removeItem("entradas");
+    localStorage.removeItem("despesas");
+    localStorage.removeItem("categoriasEntradas");
+    localStorage.removeItem("categoriasDespesas");
+    localStorage.removeItem("categorias"); // Limpar também o antigo se existir
+    localStorage.removeItem("percentualInvestimento");
+    localStorage.removeItem("percentualLazer");
+    localStorage.removeItem("geracaoAutomaticaAtiva");
+    
+    // Salvar arrays vazios para garantir que não há dados residuais
+    salvar();
+    salvarCategorias();
+    
+    // Resetar configurações para valores padrão
+    percentualInvestimento = 70;
+    percentualLazer = 30;
+    geracaoAutomaticaAtiva = true;
+    
+    // Limpar filtros
+    mesFiltradoInicial = null;
+    mesFiltradoFinal = null;
+    filtroCategoriaEntrada = "todas";
+    filtroTipoDespesa = "todas";
+    filtroCategoriaDespesa = "todas";
+    document.getElementById("filtroMesInicial").value = obterMesAtual();
+    document.getElementById("filtroMesFinal").value = obterMesAtual();
+    document.getElementById("filtroCategoriaEntrada").value = "todas";
+    document.getElementById("filtroTipoDespesa").value = "todas";
+    document.getElementById("filtroCategoriaDespesa").value = "todas";
+    
+    // Limpar campos de formulário
+    document.getElementById("entradaCategoria").value = "";
+    document.getElementById("entradaValor").value = "";
+    document.getElementById("entradaMes").value = obterMesAtual();
+    document.getElementById("entradaData").value = obterDataAtual();
+    
+    document.getElementById("despesaCategoria").value = "";
+    document.getElementById("despesaValor").value = "";
+    document.getElementById("despesaTipo").value = "variavel";
+    document.getElementById("despesaMes").value = obterMesAtual();
+    document.getElementById("despesaData").value = obterDataAtual();
+    
+    // Atualizar selects (agora vazios)
+    atualizarSelectsCategorias();
+    atualizarFiltroCategorias();
+    
+    // Renderizar
+    render();
+    
+    // Fechar modal
+    document.getElementById("modalReset").classList.remove("active");
+    desbloquearScrollBody();
+    
+    mostrarToast("Todos os dados foram resetados com sucesso!", "success");
+}
+
+function cancelarReset() {
+    document.getElementById("modalReset").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+// ========================= EXPORTAR JSON =========================
+function exportarJSON() {
+    try {
+        const dados = {
+            entradas: entradas,
+            despesas: despesas,
+            categoriasEntradas: categoriasEntradas,
+            categoriasDespesas: categoriasDespesas,
+            percentualInvestimento: percentualInvestimento,
+            percentualLazer: percentualLazer,
+            geracaoAutomaticaAtiva: geracaoAutomaticaAtiva,
+            dataExportacao: new Date().toISOString(),
+            versao: "1.0"
+        };
+        
+        const jsonString = JSON.stringify(dados, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `financeiro_backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        mostrarToast("Dados exportados em JSON com sucesso!", "success");
+    } catch (error) {
+        console.error("Erro ao exportar JSON:", error);
+        mostrarToast("Erro ao exportar dados em JSON", "error");
+    }
+}
+
+// ========================= IMPORTAR JSON =========================
+function importarJSON(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const dados = JSON.parse(e.target.result);
+            
+            // Validar estrutura básica
+            if (!dados || typeof dados !== 'object') {
+                mostrarToast("Arquivo JSON inválido", "error");
+                return;
+            }
+            
+            // Confirmar importação
+            const confirmar = confirm(
+                `Deseja importar os dados do arquivo?\n\n` +
+                `- Entradas: ${dados.entradas?.length || 0}\n` +
+                `- Despesas: ${dados.despesas?.length || 0}\n` +
+                `- Categorias Entradas: ${dados.categoriasEntradas?.length || 0}\n` +
+                `- Categorias Despesas: ${dados.categoriasDespesas?.length || 0}\n` +
+                (dados.percentualInvestimento !== undefined ? `- Investimento: ${dados.percentualInvestimento}%\n` : '') +
+                (dados.percentualLazer !== undefined ? `- Lazer: ${dados.percentualLazer}%\n` : '') +
+                `\nATENÇÃO: Isso irá substituir todos os dados atuais!`
+            );
+            
+            if (!confirmar) {
+                // Limpar input
+                event.target.value = "";
+                return;
+            }
+            
+            // Importar dados
+            if (dados.entradas && Array.isArray(dados.entradas)) {
+                entradas = dados.entradas;
+            }
+            
+            if (dados.despesas && Array.isArray(dados.despesas)) {
+                despesas = dados.despesas;
+            }
+            
+            if (dados.categoriasEntradas && Array.isArray(dados.categoriasEntradas)) {
+                categoriasEntradas = dados.categoriasEntradas;
+            }
+            
+            if (dados.categoriasDespesas && Array.isArray(dados.categoriasDespesas)) {
+                categoriasDespesas = dados.categoriasDespesas;
+            }
+            
+            // Importar configurações de percentuais
+            if (dados.percentualInvestimento !== undefined && typeof dados.percentualInvestimento === 'number') {
+                percentualInvestimento = dados.percentualInvestimento;
+            }
+            
+            if (dados.percentualLazer !== undefined && typeof dados.percentualLazer === 'number') {
+                percentualLazer = dados.percentualLazer;
+            }
+            
+            // Importar configuração de geração automática
+            if (dados.geracaoAutomaticaAtiva !== undefined && typeof dados.geracaoAutomaticaAtiva === 'boolean') {
+                geracaoAutomaticaAtiva = dados.geracaoAutomaticaAtiva;
+            }
+            
+            // Garantir que categorias não estejam vazias
+            if (categoriasEntradas.length === 0) {
+                categoriasEntradas = [];
+            }
+            
+            if (categoriasDespesas.length === 0) {
+                categoriasDespesas = [];
+            }
+            
+            // Salvar tudo
+            salvar();
+            salvarCategorias();
+            salvarConfiguracoesStorage();
+            
+            // Atualizar selects
+            atualizarSelectsCategorias();
+            atualizarFiltroCategorias();
+            
+            // Renderizar
+    render();
+            
+            // Limpar input
+            event.target.value = "";
+            
+            mostrarToast("Dados importados com sucesso!", "success");
+        } catch (error) {
+            console.error("Erro ao importar JSON:", error);
+            mostrarToast("Erro ao importar arquivo JSON. Verifique se o arquivo está no formato correto.", "error");
+            event.target.value = "";
+        }
+    };
+    
+    reader.onerror = function() {
+        mostrarToast("Erro ao ler o arquivo", "error");
+        event.target.value = "";
+    };
+    
+    reader.readAsText(file);
+}
+
+
+// ========================= EDITAR ITEM =========================
+let itemParaEditar = null;
+let tipoItemEditar = null;
+
+
+function editarDespesa(id) {
+    const item = despesas.find(d => d.id === id);
+    if (!item) return;
+    
+    itemParaEditar = id;
+    tipoItemEditar = 'despesa';
+    
+    document.getElementById("modalTitulo").textContent = "Editar Despesa";
+    document.getElementById("modalValor").value = formatarMoeda(item.valor);
+    document.getElementById("modalMes").value = item.mes;
+    
+    // Converter data de dd/mm/yyyy para yyyy-mm-dd para o input date
+    if (item.data) {
+        const [dia, mesData, ano] = item.data.split('/');
+        document.getElementById("modalData").value = `${ano}-${mesData}-${dia}`;
+    } else {
+        document.getElementById("modalData").value = "";
+    }
+    
+    // Limpar erros
+    limparErro('modalValor', 'modalValorErro');
+    limparErro('modalMes', 'modalMesErro');
+    limparErro('modalCategoria', 'modalCategoriaErro');
+    limparErro('modalData', 'modalDataErro');
+    
+    // Mostrar campo de tipo para despesas
+    document.getElementById("labelTipo").style.display = "block";
+    document.getElementById("modalTipo").style.display = "block";
+    document.getElementById("modalTipo").value = item.tipo || "variavel";
+    
+    // Mostrar campo de categoria para despesas
+    document.getElementById("labelCategoriaContainer").style.display = "block";
+    document.getElementById("modalCategoria").style.display = "block";
+    atualizarSelectsCategorias(); // Garantir que o select está atualizado
+    
+    // Ocultar campo de nome sempre (removido)
+    document.getElementById("modalNomeContainer").style.display = "none";
+    
+    // Mostrar e preencher campo de descrição (apenas para despesas)
+    document.getElementById("modalDescricaoContainer").style.display = "block";
+    document.getElementById("modalDescricao").value = item.descricao || "";
+    
+    // Configurar campos baseado no tipo
+    if (item.tipo === "fixa") {
+        // Para fixas: categoria é obrigatória
+        document.getElementById("modalCategoria").value = item.categoria || "";
+        document.getElementById("modalCategoriaLabel").innerHTML = 'Categoria <span class="text-red-500 text-sm">*</span>';
+        
+        // Configurar tipo de despesa fixa
+        const tipoFixa = item.tipoFixa || "indeterminado";
+        document.getElementById("modalTipoFixa").value = tipoFixa;
+        
+        // Configurar checkbox de geração automática (padrão: true se não existir)
+        const gerarAutomaticamente = item.gerarAutomaticamente !== undefined ? item.gerarAutomaticamente : true;
+        document.getElementById("modalGerarAutomaticamente").checked = gerarAutomaticamente;
+        
+        // Se for determinado, preencher datas
+        if (tipoFixa === "determinado" && item.dataInicio && item.dataFim) {
+            document.getElementById("modalDataInicio").value = item.dataInicio;
+            document.getElementById("modalDataFim").value = item.dataFim;
+        } else {
+            document.getElementById("modalDataInicio").value = "";
+            document.getElementById("modalDataFim").value = "";
+        }
+    } else {
+        // Para variáveis: categoria opcional
+        document.getElementById("modalCategoria").value = item.categoria || "";
+        document.getElementById("modalCategoriaLabel").innerHTML = 'Categoria <span class="text-gray-400 text-sm">(opcional)</span>';
+    }
+    
+    // Atualizar campos visuais
+    atualizarCamposModalDespesa();
+    
+    document.getElementById("modalEdicao").classList.add("active");
+    bloquearScrollBody();
+    
+    // Focar no campo apropriado
+    if (item.tipo === "fixa") {
+        document.getElementById("modalCategoria").focus();
+    } else {
+        document.getElementById("modalCategoria").focus();
+    }
+}
+
+// Atualizar campos do modal baseado no tipo
+function atualizarCamposModalDespesa() {
+    const tipo = document.getElementById("modalTipo").value;
+    const categoriaLabel = document.getElementById("modalCategoriaLabel");
+    const tipoFixaContainer = document.getElementById("modalTipoFixaContainer");
+    const despesaDeterminadaContainer = document.getElementById("modalDespesaDeterminadaContainer");
+    
+    // Ocultar campo de nome sempre (removido)
+    document.getElementById("modalNomeContainer").style.display = "none";
+    
+    if (tipo === "fixa") {
+        categoriaLabel.innerHTML = 'Categoria <span class="text-red-500 text-sm">*</span>';
+        // Mostrar select de tipo de despesa fixa
+        tipoFixaContainer.style.display = "block";
+        
+        // Verificar se é determinado para mostrar campos de data
+        const tipoFixa = document.getElementById("modalTipoFixa").value;
+        const gerarAutomaticamenteContainer = document.getElementById("modalGerarAutomaticamenteContainer");
+        
+        if (tipoFixa === "determinado") {
+            despesaDeterminadaContainer.style.display = "block";
+            gerarAutomaticamenteContainer.style.display = "block"; // Mostrar checkbox também para determinadas
+        } else {
+            despesaDeterminadaContainer.style.display = "none";
+            gerarAutomaticamenteContainer.style.display = "block"; // Mostrar checkbox para indeterminadas
+        }
+    } else {
+        categoriaLabel.innerHTML = 'Categoria <span class="text-gray-400 text-sm">(opcional)</span>';
+        // Ocultar campos de despesa fixa
+        tipoFixaContainer.style.display = "none";
+        despesaDeterminadaContainer.style.display = "none";
+        document.getElementById("modalGerarAutomaticamenteContainer").style.display = "none";
+    }
+}
+
+function editarEntrada(id) {
+    const item = entradas.find(e => e.id === id);
+    if (!item) return;
+    
+    itemParaEditar = id;
+    tipoItemEditar = 'entrada';
+    
+    document.getElementById("modalTitulo").textContent = "Editar Entrada";
+    document.getElementById("modalValor").value = formatarMoeda(item.valor);
+    document.getElementById("modalMes").value = item.mes;
+    
+    // Converter data de dd/mm/yyyy para yyyy-mm-dd para o input date
+    if (item.data) {
+        const [dia, mesData, ano] = item.data.split('/');
+        document.getElementById("modalData").value = `${ano}-${mesData}-${dia}`;
+    } else {
+        document.getElementById("modalData").value = "";
+    }
+    
+    // Limpar erros
+    limparErro('modalValor', 'modalValorErro');
+    limparErro('modalMes', 'modalMesErro');
+    limparErro('modalData', 'modalDataErro');
+    
+    // Ocultar campo de tipo para entradas
+    document.getElementById("labelTipo").style.display = "none";
+    document.getElementById("modalTipo").style.display = "none";
+    
+    // Ocultar campos de despesa fixa
+    document.getElementById("modalTipoFixaContainer").style.display = "none";
+    document.getElementById("modalDespesaDeterminadaContainer").style.display = "none";
+    
+    // Ocultar campo de nome para entradas
+    document.getElementById("modalNomeContainer").style.display = "none";
+    
+    // Ocultar campo de descrição para entradas
+    document.getElementById("modalDescricaoContainer").style.display = "none";
+    
+    // Mostrar campo de categoria para entradas
+    document.getElementById("labelCategoriaContainer").style.display = "block";
+    document.getElementById("modalCategoria").style.display = "block";
+    document.getElementById("modalCategoria").value = item.categoria || "";
+    document.getElementById("modalCategoriaLabel").innerHTML = 'Categoria <span class="text-gray-400 text-sm">(opcional)</span>';
+    
+    // Atualizar selects de categoria
+    atualizarSelectsCategorias();
+    
+    document.getElementById("modalEdicao").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("modalCategoria").focus();
+}
+
+function salvarEdicao() {
+    const nomeInput = document.getElementById("modalNome");
+    const valorInput = document.getElementById("modalValor");
+    const mesInput = document.getElementById("modalMes");
+    
+    let nome = "";
+    const valorFormatado = valorInput.value;
+    const mes = mesInput.value.trim();
+    
+    // Variáveis para despesas fixas (definidas no início para estarem no escopo correto)
+    let tipoFixa = null;
+    let dataInicio = null;
+    let dataFim = null;
+
+    if (tipoItemEditar === 'entrada') {
+        // Para entradas: categoria é opcional
+        const categoria = document.getElementById("modalCategoria").value.trim();
+        // Não precisa validar nome para entradas
+    } else if (tipoItemEditar === 'despesa') {
+        const tipo = document.getElementById("modalTipo").value;
+        const categoria = document.getElementById("modalCategoria").value;
+        
+        if (tipo === "fixa") {
+            // Para fixas: categoria é obrigatória e vira o nome
+            if (!categoria) {
+                mostrarErro('modalCategoria', 'modalCategoriaErro', 'A categoria é obrigatória para despesas fixas');
+                mostrarToast("Selecione uma categoria para despesas fixas", "error");
+                document.getElementById("modalCategoria").focus();
+                return;
+            }
+            limparErro('modalCategoria', 'modalCategoriaErro');
+            nome = categoria; // Categoria vira o nome
+        } else {
+            // Para variáveis: categoria é o nome (removemos o campo nome)
+            nome = categoria || "";
+        }
+        
+        // Se for despesa fixa, obter e validar campos adicionais
+        if (tipo === "fixa") {
+            // Obter tipo de despesa fixa
+            tipoFixa = document.getElementById("modalTipoFixa").value;
+            
+            // Se for determinado, validar datas
+            if (tipoFixa === "determinado") {
+                dataInicio = document.getElementById("modalDataInicio").value;
+                dataFim = document.getElementById("modalDataFim").value;
+                
+                if (!dataInicio || !dataFim) {
+                    mostrarToast("Preencha as datas de início e fim para despesas determinadas", "error");
+                    return;
+                }
+                
+                // Validar que data fim é posterior à data início
+                const inicio = new Date(dataInicio);
+                const fim = new Date(dataFim);
+                if (fim < inicio) {
+                    mostrarToast("A data de fim deve ser posterior à data de início", "error");
+                    return;
+                }
+            }
+        }
+    }
+
+    // Converter e validar valor
+    const valor = converterMoedaParaNumero(valorFormatado);
+    if (valor <= 0) {
+        mostrarErro('modalValor', 'modalValorErro', 'O valor deve ser maior que zero');
+        mostrarToast("Corrija os erros no campo Valor", "error");
+        valorInput.focus();
+        return;
+    }
+    limparErro('modalValor', 'modalValorErro');
+
+    // Validar data
+    const validacaoData = validarData(mes);
+    if (!validacaoData.valido) {
+        mostrarErro('modalMes', 'modalMesErro', validacaoData.erro);
+        mostrarToast("Corrija os erros no campo Mês", "error");
+        mesInput.focus();
+        return;
+    }
+    limparErro('modalMes', 'modalMesErro');
+
+    // Validar data
+    const dataInput = document.getElementById("modalData");
+    const data = dataInput.value; // formato: yyyy-mm-dd
+    
+    if (!data) {
+        mostrarErro('modalData', 'modalDataErro', 'Selecione uma data');
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    if (!validarDataDentroMes('modalData', 'modalMes', 'modalDataErro')) {
+        mostrarToast("Corrija os erros no campo Data", "error");
+        dataInput.focus();
+        return;
+    }
+    
+    // Converter data para formato dd/mm/yyyy
+    const dataObj = new Date(data + 'T00:00:00');
+    const dia = String(dataObj.getDate()).padStart(2, '0');
+    const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+    const anoData = dataObj.getFullYear();
+    const dataFormatada = `${dia}/${mesData}/${anoData}`;
+
+    if (tipoItemEditar === 'entrada') {
+        const categoria = document.getElementById("modalCategoria").value.trim();
+        const index = entradas.findIndex(e => e.id === itemParaEditar);
+        if (index !== -1) {
+            entradas[index] = {
+                id: itemParaEditar,
+                categoria: categoria || "",
+                valor: valor,
+                mes,
+                data: dataFormatada
+            };
+            mostrarToast("Entrada editada com sucesso!", "success");
+        }
+    } else if (tipoItemEditar === 'despesa') {
+        const index = despesas.findIndex(d => d.id === itemParaEditar);
+        if (index !== -1) {
+            const tipo = document.getElementById("modalTipo").value;
+            const categoria = document.getElementById("modalCategoria").value;
+            
+            // Obter valor do checkbox de geração automática (para fixas indeterminadas e determinadas)
+            let gerarAutomaticamente = true; // Padrão
+            if (tipo === "fixa") {
+                const checkbox = document.getElementById("modalGerarAutomaticamente");
+                if (checkbox) {
+                    gerarAutomaticamente = checkbox.checked;
+                }
+            }
+            
+            // Obter descrição
+            const descricao = document.getElementById("modalDescricao").value.trim() || "";
+            
+            // Usar campos de despesa fixa já definidos na validação acima
+            // Preservar outros campos da despesa original
+            const despesaOriginal = despesas[index];
+            const novaDespesa = {
+                ...despesaOriginal, // Preservar campos existentes
+                id: itemParaEditar,
+                nome: sanitizar(nome),
+                valor: valor,
+                tipo: tipo,
+                tipoFixa: tipoFixa || null,
+                dataInicio: dataInicio || null,
+                dataFim: dataFim || null,
+                categoria: categoria || "",
+                descricao: descricao || "",
+                mes,
+                data: dataFormatada
+            };
+            
+            // Definir gerarAutomaticamente para despesas fixas (indeterminadas e determinadas)
+            if (tipo === "fixa") {
+                novaDespesa.gerarAutomaticamente = gerarAutomaticamente;
+                
+                // Se desmarcou a geração automática, desmarcar TODAS as despesas fixas da mesma categoria e tipo
+                if (gerarAutomaticamente === false) {
+                    despesas.forEach((d, idx) => {
+                        if (idx !== index && // Não atualizar a despesa que está sendo editada (já foi atualizada acima)
+                            d.tipo === "fixa" && 
+                            d.tipoFixa === tipoFixa && 
+                            d.categoria === categoria) {
+                            despesas[idx].gerarAutomaticamente = false;
+                        }
+                    });
+                }
+            }
+            // Para variáveis, manter o campo original se existir (não deveria existir, mas por segurança)
+            
+            despesas[index] = novaDespesa;
+            mostrarToast("Despesa editada com sucesso!", "success");
+        }
+    }
+
+    salvar();
+    render();
+    fecharModal();
+}
+
+function fecharModal() {
+    itemParaEditar = null;
+    tipoItemEditar = null;
+    document.getElementById("modalEdicao").classList.remove("active");
+    // Ocultar campo de tipo ao fechar
+    document.getElementById("labelTipo").style.display = "none";
+    document.getElementById("modalTipo").style.display = "none";
+    // Ocultar campo de categoria ao fechar
+    document.getElementById("labelCategoriaContainer").style.display = "none";
+    document.getElementById("modalCategoria").style.display = "none";
+    desbloquearScrollBody();
+}
+
+// ========================= FILTRO POR TIPO DE DESPESA =========================
+function aplicarFiltroTipoDespesa() {
+    filtroTipoDespesa = document.getElementById("filtroTipoDespesa").value;
+    render();
+}
+
+// ========================= FILTRO POR CATEGORIA DE ENTRADA =========================
+function aplicarFiltroCategoriaEntrada() {
+    filtroCategoriaEntrada = document.getElementById("filtroCategoriaEntrada").value;
+    render();
+}
+
+// ========================= FILTRO POR CATEGORIA DE DESPESA =========================
+function aplicarFiltroCategoriaDespesa() {
+    filtroCategoriaDespesa = document.getElementById("filtroCategoriaDespesa").value;
+    render();
+}
+
+// Atualizar select de categorias no filtro
+function atualizarFiltroCategorias() {
+    // Atualizar filtro de categorias de entradas
+    const selectEntradas = document.getElementById("filtroCategoriaEntrada");
+    if (selectEntradas) {
+        const valorAtualEntradas = selectEntradas.value;
+        selectEntradas.innerHTML = '<option value="todas">Todas as Categorias</option>';
+        
+        categoriasEntradas.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            selectEntradas.appendChild(option);
+        });
+        
+        // Restaurar valor selecionado se ainda existir
+        if (valorAtualEntradas && categoriasEntradas.includes(valorAtualEntradas)) {
+            selectEntradas.value = valorAtualEntradas;
+        } else {
+            selectEntradas.value = "todas";
+        }
+    }
+    
+    // Atualizar filtro de categorias de despesas
+    const selectDespesas = document.getElementById("filtroCategoriaDespesa");
+    if (!selectDespesas) return;
+    
+    const valorAtualDespesas = selectDespesas.value;
+    selectDespesas.innerHTML = '<option value="todas">Todas as Categorias</option>';
+    
+    categoriasDespesas.forEach(cat => {
+        const option = document.createElement("option");
+        option.value = cat;
+        option.textContent = cat;
+        selectDespesas.appendChild(option);
+    });
+    
+    // Restaurar valor selecionado se ainda existir
+    if (valorAtualDespesas && categoriasDespesas.includes(valorAtualDespesas)) {
+        selectDespesas.value = valorAtualDespesas;
+    } else {
+        selectDespesas.value = "todas";
+    }
+}
+
+// ========================= TOGGLE COLLAPSE IMPORTAR DESPESAS =========================
+function toggleImportarDespesas() {
+    const content = document.getElementById("importarDespesasContent");
+    const icon = document.getElementById("importarIcon");
+    
+    content.classList.toggle("expanded");
+    icon.classList.toggle("rotated");
+}
+
+function toggleFiltros() {
+    const content = document.getElementById("filtrosContent");
+    const icon = document.getElementById("filtrosIcon");
+    
+    content.classList.toggle("expanded");
+    icon.classList.toggle("rotated");
+}
+
+// Fechar modal ao clicar fora
+document.getElementById("modalEdicao").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModal();
+    }
+});
+
+document.getElementById("modalConfirmacao").addEventListener('click', function(e) {
+    if (e.target === this) {
+        cancelarExclusao();
+    }
+});
+
+document.getElementById("modalImportacao").addEventListener('click', function(e) {
+    if (e.target === this) {
+        cancelarImportacao();
+    }
+});
+
+document.getElementById("modalCategorias").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalCategorias();
+    }
+});
+
+document.getElementById("modalEdicao").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModal();
+    }
+});
+
+document.getElementById("modalCategorias").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalCategorias();
+    }
+});
+
+document.getElementById("modalReset").addEventListener('click', function(e) {
+    if (e.target === this) {
+        cancelarReset();
+    }
+});
+
+document.getElementById("modalAdicionarEntrada").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalAdicionarEntrada();
+    }
+});
+
+document.getElementById("modalAdicionarDespesa").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalAdicionarDespesa();
+    }
+});
+
+document.getElementById("modalCopiarDespesas").addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalCopiarDespesas();
+    }
+});
+
+
+// ========================= IMPORTAR DESPESAS =========================
+let despesasParaImportar = [];
+
+function abrirModalCopiarDespesas() {
+    // Inicializar campos
+    document.getElementById("modalCopiarMesOrigem").value = "";
+    document.getElementById("modalCopiarMesDestino").value = obterMesAtual();
+    document.getElementById("modalCopiarFixas").checked = true;
+    document.getElementById("modalCopiarVariaveis").checked = true;
+    
+    // Limpar erros
+    limparErro('modalCopiarMesOrigem', 'modalCopiarMesOrigemErro');
+    limparErro('modalCopiarMesDestino', 'modalCopiarMesDestinoErro');
+    
+    // Abrir modal
+    document.getElementById("modalCopiarDespesas").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("modalCopiarMesOrigem").focus();
+}
+
+function fecharModalCopiarDespesas() {
+    document.getElementById("modalCopiarDespesas").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+function confirmarCopiarDespesas() {
+    const mesOrigemInput = document.getElementById("modalCopiarMesOrigem");
+    const mesDestinoInput = document.getElementById("modalCopiarMesDestino");
+    const importarFixas = document.getElementById("modalCopiarFixas").checked;
+    const importarVariaveis = document.getElementById("modalCopiarVariaveis").checked;
+
+    const mesOrigem = mesOrigemInput.value.trim();
+    const mesDestino = mesDestinoInput.value.trim();
+
+    // Validar mês de origem
+    if (!mesOrigem) {
+        mostrarErro('modalCopiarMesOrigem', 'modalCopiarMesOrigemErro', 'Digite o mês de origem');
+        mostrarToast("Digite o mês de origem", "error");
+        return;
+    }
+
+    const validacaoOrigem = validarData(mesOrigem);
+    if (!validacaoOrigem.valido) {
+        mostrarErro('modalCopiarMesOrigem', 'modalCopiarMesOrigemErro', validacaoOrigem.erro);
+        mostrarToast(validacaoOrigem.erro, "error");
+        return;
+    }
+    limparErro('modalCopiarMesOrigem', 'modalCopiarMesOrigemErro');
+
+    // Validar mês de destino
+    if (!mesDestino) {
+        mostrarErro('modalCopiarMesDestino', 'modalCopiarMesDestinoErro', 'Digite o mês de destino');
+        mostrarToast("Digite o mês de destino", "error");
+        return;
+    }
+
+    const validacaoDestino = validarData(mesDestino);
+    if (!validacaoDestino.valido) {
+        mostrarErro('modalCopiarMesDestino', 'modalCopiarMesDestinoErro', validacaoDestino.erro);
+        mostrarToast(validacaoDestino.erro, "error");
+        return;
+    }
+    limparErro('modalCopiarMesDestino', 'modalCopiarMesDestinoErro');
+
+    // Verificar se pelo menos um tipo foi selecionado
+    if (!importarFixas && !importarVariaveis) {
+        mostrarToast("Selecione pelo menos um tipo de despesa para copiar", "error");
+        return;
+    }
+
+    // Preencher campos do modal antigo (para compatibilidade com a função existente)
+    document.getElementById("importarMesOrigem").value = mesOrigem;
+    document.getElementById("importarMesDestino").value = mesDestino;
+    document.getElementById("importarFixas").checked = importarFixas;
+    document.getElementById("importarVariaveis").checked = importarVariaveis;
+    
+    // Fechar modal de copiar e abrir modal de confirmação
+    fecharModalCopiarDespesas();
+    abrirModalImportacao();
+}
+
+function abrirModalImportacao() {
+    const mesOrigemInput = document.getElementById("importarMesOrigem");
+    const mesDestinoInput = document.getElementById("importarMesDestino");
+    const importarFixas = document.getElementById("importarFixas").checked;
+    const importarVariaveis = document.getElementById("importarVariaveis").checked;
+
+    const mesOrigem = mesOrigemInput.value.trim();
+    const mesDestino = mesDestinoInput.value.trim();
+
+    // Validar mês de origem
+    if (!mesOrigem) {
+        mostrarErro('importarMesOrigem', 'importarMesOrigemErro', 'Digite o mês de origem');
+        mostrarToast("Digite o mês de origem", "error");
+        return;
+    }
+
+    const validacaoOrigem = validarData(mesOrigem);
+    if (!validacaoOrigem.valido) {
+        mostrarErro('importarMesOrigem', 'importarMesOrigemErro', validacaoOrigem.erro);
+        mostrarToast(validacaoOrigem.erro, "error");
+        return;
+    }
+    limparErro('importarMesOrigem', 'importarMesOrigemErro');
+
+    // Validar mês de destino
+    if (!mesDestino) {
+        mostrarErro('importarMesDestino', 'importarMesDestinoErro', 'Digite o mês de destino');
+        mostrarToast("Digite o mês de destino", "error");
+        return;
+    }
+
+    const validacaoDestino = validarData(mesDestino);
+    if (!validacaoDestino.valido) {
+        mostrarErro('importarMesDestino', 'importarMesDestinoErro', validacaoDestino.erro);
+        mostrarToast(validacaoDestino.erro, "error");
+        return;
+    }
+    limparErro('importarMesDestino', 'importarMesDestinoErro');
+
+    // Verificar se pelo menos um tipo foi selecionado
+    if (!importarFixas && !importarVariaveis) {
+        mostrarToast("Selecione pelo menos um tipo de despesa para copiar", "error");
+        return;
+    }
+
+    // Buscar despesas do mês de origem
+    const despesasOrigem = despesas.filter(d => d.mes === mesOrigem);
+    
+    // Filtrar por tipo selecionado
+    let despesasFiltradas = [];
+    if (importarFixas && importarVariaveis) {
+        despesasFiltradas = despesasOrigem;
+    } else if (importarFixas) {
+        despesasFiltradas = despesasOrigem.filter(d => d.tipo === "fixa");
+    } else if (importarVariaveis) {
+        despesasFiltradas = despesasOrigem.filter(d => d.tipo === "variavel");
+    }
+
+    if (despesasFiltradas.length === 0) {
+        mostrarToast(`Nenhuma despesa encontrada em ${mesOrigem} com os tipos selecionados`, "info");
+        return;
+    }
+
+    // Verificar se já existem despesas com mesmo nome no mês de destino
+    const despesasDestino = despesas.filter(d => d.mes === mesDestino);
+    const nomesDestino = despesasDestino.map(d => d.nome.toLowerCase());
+
+    // Preparar despesas para importação (criar cópias com novo mês e ID)
+    despesasParaImportar = despesasFiltradas.map(d => ({
+        nome: d.nome,
+        valor: d.valor,
+        tipo: d.tipo,
+        categoria: d.categoria || "",
+        mes: mesDestino,
+        jaExiste: nomesDestino.includes(d.nome.toLowerCase())
+    }));
+
+    // Montar texto do modal
+    const tiposTexto = [];
+    if (importarFixas) tiposTexto.push("Fixas");
+    if (importarVariaveis) tiposTexto.push("Variáveis");
+    
+    document.getElementById("importacaoTexto").innerHTML = 
+        `Copiar <strong>${despesasParaImportar.length}</strong> despesa(s) ${tiposTexto.join(" e ")} de <strong>${mesOrigem}</strong> para <strong>${mesDestino}</strong>?`;
+
+    // Montar lista de despesas
+    let listaHTML = "";
+    despesasParaImportar.forEach((d, index) => {
+        const tipoTexto = d.tipo === "fixa" ? "Fixa" : "Variável";
+        const tipoCor = d.tipo === "fixa" ? "bg-orange-100 text-orange-800" : "bg-pink-100 text-pink-800";
+        const categoriaBadge = d.categoria 
+            ? `<span class="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 ml-2">${sanitizar(d.categoria)}</span>`
+            : '';
+        const aviso = d.jaExiste ? '<span class="text-red-600 text-xs ml-2">(já existe)</span>' : '';
+        
+        listaHTML += `
+            <div class="flex items-center justify-between py-2 border-b last:border-0">
+                <div class="flex-1">
+                    <span class="font-medium">${d.nome}</span>
+                    <span class="px-2 py-1 rounded text-xs font-medium ${tipoCor} ml-2">${tipoTexto}</span>
+                    ${categoriaBadge}
+                    ${aviso}
+                </div>
+                <div class="text-gray-700 font-medium">R$ ${formatarMoeda(d.valor)}</div>
+            </div>
+        `;
+    });
+
+    document.getElementById("importacaoLista").innerHTML = listaHTML;
+    document.getElementById("modalImportacao").classList.add("active");
+    bloquearScrollBody();
+}
+
+function confirmarImportacao() {
+    if (despesasParaImportar.length === 0) {
+        cancelarImportacao();
+        return;
+    }
+
+    let importadas = 0;
+    let duplicadas = 0;
+
+    despesasParaImportar.forEach(d => {
+        // Se já existe, não importa novamente
+        if (d.jaExiste) {
+            duplicadas++;
+            return;
+        }
+
+        despesas.push({
+            id: gerarId(),
+            nome: d.nome,
+            valor: d.valor,
+            tipo: d.tipo,
+            categoria: d.categoria || "",
+            mes: d.mes
+        });
+        importadas++;
+    });
+
+    salvar();
+    render();
+
+    // Limpar campos
+    document.getElementById("importarMesOrigem").value = "";
+    document.getElementById("importarMesDestino").value = "";
+    document.getElementById("importarFixas").checked = true;
+    document.getElementById("importarVariaveis").checked = true;
+
+    despesasParaImportar = [];
+    document.getElementById("modalImportacao").classList.remove("active");
+    desbloquearScrollBody();
+
+    let mensagem = `${importadas} despesa(s) copiada(s) com sucesso!`;
+    if (duplicadas > 0) {
+        mensagem += ` ${duplicadas} despesa(s) já existiam e foram ignoradas.`;
+    }
+    mostrarToast(mensagem, importadas > 0 ? "success" : "info");
+}
+
+function cancelarImportacao() {
+    despesasParaImportar = [];
+    document.getElementById("modalImportacao").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+
+// ========================= GERENCIAR CATEGORIAS =========================
+function abrirModalCategorias() {
+    // Resetar para aba de entradas por padrão
+    tipoCategoriaAtual = 'entradas';
+    trocarAbaCategorias('entradas');
+    document.getElementById("modalCategorias").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("novaCategoria").focus();
+}
+
+function fecharModalCategorias() {
+    document.getElementById("modalCategorias").classList.remove("active");
+    document.getElementById("novaCategoria").value = "";
+    desbloquearScrollBody();
+}
+
+// ========================= CONFIGURAÇÕES =========================
+function carregarConfiguracoes() {
+    try {
+        const configInvestimento = localStorage.getItem("percentualInvestimento");
+        const configLazer = localStorage.getItem("percentualLazer");
+        const configGeracaoAutomatica = localStorage.getItem("geracaoAutomaticaAtiva");
+        
+        if (configInvestimento) {
+            percentualInvestimento = parseInt(configInvestimento);
+        }
+        if (configLazer) {
+            percentualLazer = parseInt(configLazer);
+        }
+        if (configGeracaoAutomatica !== null) {
+            geracaoAutomaticaAtiva = configGeracaoAutomatica === "true";
+        }
+    } catch (error) {
+        console.error("Erro ao carregar configurações:", error);
+    }
+}
+
+function salvarConfiguracoesStorage() {
+    try {
+        localStorage.setItem("percentualInvestimento", percentualInvestimento.toString());
+        localStorage.setItem("percentualLazer", percentualLazer.toString());
+        localStorage.setItem("geracaoAutomaticaAtiva", geracaoAutomaticaAtiva.toString());
+    } catch (error) {
+        console.error("Erro ao salvar configurações:", error);
+    }
+}
+
+function abrirModalConfiguracoes() {
+    // Preencher campos com valores atuais
+    document.getElementById("configInvestimento").value = percentualInvestimento;
+    document.getElementById("configLazer").value = percentualLazer;
+    document.getElementById("configGeracaoAutomatica").checked = geracaoAutomaticaAtiva;
+    
+    // Limpar erros
+    limparErro('configInvestimento', 'configInvestimentoErro');
+    limparErro('configLazer', 'configLazerErro');
+    document.getElementById("configTotalErro").classList.add("hidden");
+    
+    // Abrir modal
+    document.getElementById("modalConfiguracoes").classList.add("active");
+    bloquearScrollBody();
+    document.getElementById("configInvestimento").focus();
+}
+
+function fecharModalConfiguracoes() {
+    document.getElementById("modalConfiguracoes").classList.remove("active");
+    desbloquearScrollBody();
+}
+
+function validarPercentuais() {
+    const investimento = parseInt(document.getElementById("configInvestimento").value) || 0;
+    const lazer = parseInt(document.getElementById("configLazer").value) || 0;
+    const total = investimento + lazer;
+    const erroTotal = document.getElementById("configTotalErro");
+    
+    // Validar valores individuais
+    if (investimento < 0 || investimento > 100) {
+        mostrarErro('configInvestimento', 'configInvestimentoErro', 'O valor deve estar entre 0 e 100');
+        return false;
+    }
+    limparErro('configInvestimento', 'configInvestimentoErro');
+    
+    if (lazer < 0 || lazer > 100) {
+        mostrarErro('configLazer', 'configLazerErro', 'O valor deve estar entre 0 e 100');
+        return false;
+    }
+    limparErro('configLazer', 'configLazerErro');
+    
+    // Validar soma
+    if (total !== 100) {
+        erroTotal.textContent = `A soma dos percentuais deve ser 100% (atual: ${total}%)`;
+        erroTotal.classList.remove("hidden");
+        return false;
+    }
+    erroTotal.classList.add("hidden");
+    return true;
+}
+
+function salvarConfiguracoes() {
+    const investimento = parseInt(document.getElementById("configInvestimento").value) || 0;
+    const lazer = parseInt(document.getElementById("configLazer").value) || 0;
+    const geracaoAutomatica = document.getElementById("configGeracaoAutomatica").checked;
+    
+    if (!validarPercentuais()) {
+        mostrarToast("Corrija os erros antes de salvar", "error");
+        return;
+    }
+    
+    percentualInvestimento = investimento;
+    percentualLazer = lazer;
+    geracaoAutomaticaAtiva = geracaoAutomatica;
+    
+    salvarConfiguracoesStorage();
+    render(); // Atualizar resumo com novos percentuais
+    fecharModalConfiguracoes();
+    mostrarToast("Configurações salvas com sucesso!", "success");
+}
+
+function adicionarCategoria() {
+    const input = document.getElementById("novaCategoria");
+    const nome = input.value.trim();
+    
+    if (!nome) {
+        mostrarToast("Digite o nome da categoria", "error");
+        input.focus();
+        return;
+    }
+    
+    if (nome.length < 2) {
+        mostrarToast("A categoria deve ter pelo menos 2 caracteres", "error");
+        input.focus();
+        return;
+    }
+    
+    if (nome.length > 50) {
+        mostrarToast("A categoria deve ter no máximo 50 caracteres", "error");
+        input.focus();
+        return;
+    }
+    
+    // Selecionar array correto baseado na aba ativa
+    const categoriasAtivas = tipoCategoriaAtual === 'entradas' ? categoriasEntradas : categoriasDespesas;
+    
+    // Verificar se já existe
+    if (categoriasAtivas.includes(nome)) {
+        mostrarToast("Esta categoria já existe", "error");
+        input.focus();
+        return;
+    }
+    
+    // Adicionar à lista correta
+    if (tipoCategoriaAtual === 'entradas') {
+        categoriasEntradas.push(nome);
+        categoriasEntradas.sort();
+    } else {
+        categoriasDespesas.push(nome);
+        categoriasDespesas.sort();
+    }
+    
+    salvarCategorias();
+    atualizarSelectsCategorias();
+    atualizarFiltroCategorias();
+    renderizarListaCategorias();
+    
+    input.value = "";
+    mostrarToast("Categoria adicionada com sucesso!", "success");
+    input.focus();
+}
+
+function removerCategoria(nome) {
+    // Selecionar array correto baseado na aba ativa
+    if (tipoCategoriaAtual === 'entradas') {
+        // Verificar se há entradas usando esta categoria
+        const entradasComCategoria = entradas.filter(e => e.categoria === nome);
+        
+        if (entradasComCategoria.length > 0) {
+            const confirmar = confirm(`Existem ${entradasComCategoria.length} entrada(s) usando esta categoria. Deseja realmente removê-la? As entradas ficarão sem categoria.`);
+            if (!confirmar) {
+                return;
+            }
+            
+            // Remover categoria das entradas
+            entradasComCategoria.forEach(e => {
+                e.categoria = "";
+            });
+            salvar();
+        }
+        
+        categoriasEntradas = categoriasEntradas.filter(c => c !== nome);
+    } else {
+        // Verificar se há despesas usando esta categoria
+        const despesasComCategoria = despesas.filter(d => d.categoria === nome);
+        
+        if (despesasComCategoria.length > 0) {
+            const confirmar = confirm(`Existem ${despesasComCategoria.length} despesa(s) usando esta categoria. Deseja realmente removê-la? As despesas ficarão sem categoria.`);
+            if (!confirmar) {
+                return;
+            }
+            
+            // Remover categoria das despesas
+            despesasComCategoria.forEach(d => {
+                d.categoria = "";
+            });
+            salvar();
+        }
+        
+        categoriasDespesas = categoriasDespesas.filter(c => c !== nome);
+    }
+    
+    salvarCategorias();
+    atualizarSelectsCategorias();
+    atualizarFiltroCategorias();
+    renderizarListaCategorias();
+    render(); // Atualizar tabela
+    
+    mostrarToast("Categoria removida com sucesso!", "success");
+}
+
+function renderizarListaCategorias() {
+    const lista = document.getElementById("listaCategorias");
+    
+    // Selecionar array correto baseado na aba ativa
+    const categoriasAtivas = tipoCategoriaAtual === 'entradas' ? categoriasEntradas : categoriasDespesas;
+    
+    if (categoriasAtivas.length === 0) {
+        lista.innerHTML = '<p class="text-gray-500 text-center py-4">Nenhuma categoria cadastrada</p>';
+        return;
+    }
+    
+    let html = "";
+    categoriasAtivas.forEach(cat => {
+        html += `
+            <div class="flex items-center justify-between p-2 bg-white rounded border">
+                <span class="font-medium">${sanitizar(cat)}</span>
+                <button onclick="removerCategoria('${sanitizar(cat)}')" 
+                        class="text-red-600 hover:text-red-700 hover:underline text-sm">
+                    Remover
+                </button>
+            </div>
+        `;
+    });
+    
+    lista.innerHTML = html;
+}
+
+
+// ========================= FILTRO POR MÊS (RANGE) =========================
+let mesFiltradoInicial = null;
+let mesFiltradoFinal = null;
+
+function filtrarMesRange() {
+    const mesInicialInput = document.getElementById("filtroMesInicial");
+    const mesFinalInput = document.getElementById("filtroMesFinal");
+    const mesInicial = mesInicialInput.value.trim();
+    const mesFinal = mesFinalInput.value.trim();
+
+    // Se ambos estiverem vazios, limpar filtro
+    if (!mesInicial && !mesFinal) {
+        mesFiltradoInicial = null;
+        mesFiltradoFinal = null;
+        render();
+        return;
+    }
+
+    // Validar mês inicial
+    if (mesInicial) {
+        const validacaoInicial = validarData(mesInicial);
+        if (!validacaoInicial.valido) {
+            mostrarErro('filtroMesInicial', 'filtroMesInicialErro', validacaoInicial.erro);
+            return;
+        }
+        limparErro('filtroMesInicial', 'filtroMesInicialErro');
+    }
+
+    // Validar mês final
+    if (mesFinal) {
+        const validacaoFinal = validarData(mesFinal);
+        if (!validacaoFinal.valido) {
+            mostrarErro('filtroMesFinal', 'filtroMesFinalErro', validacaoFinal.erro);
+            return;
+        }
+        limparErro('filtroMesFinal', 'filtroMesFinalErro');
+    }
+
+    // Validar que mês inicial não seja posterior ao final
+    if (mesInicial && mesFinal) {
+        const [mesIni, anoIni] = mesInicial.split('/').map(Number);
+        const [mesFim, anoFim] = mesFinal.split('/').map(Number);
+        const dataInicial = new Date(anoIni, mesIni - 1);
+        const dataFinal = new Date(anoFim, mesFim - 1);
+        
+        if (dataInicial > dataFinal) {
+            mostrarErro('filtroMesFinal', 'filtroMesFinalErro', 'O mês final deve ser posterior ou igual ao mês inicial');
+            mostrarToast("O mês final deve ser posterior ou igual ao mês inicial", "error");
+            return;
+        }
+    }
+
+    mesFiltradoInicial = mesInicial || null;
+    mesFiltradoFinal = mesFinal || null;
+    render();
+}
+
+function alterarMesFiltroInicial(direcao) {
+    const input = document.getElementById("filtroMesInicial");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    // Não precisa chamar aplicarMascaraData pois o valor já está formatado corretamente
+    // Limpar erros antes de filtrar
+    limparErro('filtroMesInicial', 'filtroMesInicialErro');
+    filtrarMesRange();
+}
+
+function alterarMesFiltroFinal(direcao) {
+    const input = document.getElementById("filtroMesFinal");
+    let mes = input.value.trim();
+    
+    if (!mes) {
+        mes = obterMesAtual();
+    }
+    
+    const novoMes = alterarMes(mes, direcao);
+    input.value = novoMes;
+    // Não precisa chamar aplicarMascaraData pois o valor já está formatado corretamente
+    // Limpar erros antes de filtrar
+    limparErro('filtroMesFinal', 'filtroMesFinalErro');
+    filtrarMesRange();
+}
+
+function limparFiltro() {
+    mesFiltradoInicial = null;
+    mesFiltradoFinal = null;
+    filtroCategoriaEntrada = "todas";
+    filtroTipoDespesa = "todas";
+    filtroCategoriaDespesa = "todas";
+    document.getElementById("filtroMesInicial").value = obterMesAtual();
+    document.getElementById("filtroMesFinal").value = obterMesAtual();
+    document.getElementById("filtroCategoriaEntrada").value = "todas";
+    document.getElementById("filtroTipoDespesa").value = "todas";
+    document.getElementById("filtroCategoriaDespesa").value = "todas";
+    render();
+    mostrarToast("Filtros removidos", "info");
+}
+
+
+// ========================= VERIFICAR E CRIAR DESPESAS FIXAS AUTOMATICAMENTE =========================
+function verificarECriarDespesasFixas() {
+    // Se a geração automática estiver desabilitada, não fazer nada
+    if (!geracaoAutomaticaAtiva) {
+        return;
+    }
+    
+    // Se houver filtro de range, verificar todos os meses no range
+    // Caso contrário, verificar apenas o mês atual
+    let mesesParaVerificar = [];
+    
+    if (mesFiltradoInicial || mesFiltradoFinal) {
+        // Gerar lista de meses no range
+        const mesInicial = mesFiltradoInicial || obterMesAtual();
+        const mesFinal = mesFiltradoFinal || obterMesAtual();
+        
+        const [mesIni, anoIni] = mesInicial.split('/').map(Number);
+        const [mesFim, anoFim] = mesFinal.split('/').map(Number);
+        
+        let dataAtual = new Date(anoIni, mesIni - 1);
+        const dataFinal = new Date(anoFim, mesFim - 1);
+        
+        while (dataAtual <= dataFinal) {
+            const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
+            const ano = dataAtual.getFullYear();
+            mesesParaVerificar.push(`${mes}/${ano}`);
+            dataAtual = new Date(dataAtual.getFullYear(), dataAtual.getMonth() + 1);
+        }
+    } else {
+        mesesParaVerificar = [obterMesAtual()];
+    }
+    
+    // Buscar despesas fixas INDETERMINADAS com geração automática ativada para usar como templates
+    const despesasFixasIndeterminadas = despesas.filter(d => {
+        // Verificar se é despesa fixa indeterminada
+        if (d.tipo !== "fixa" || d.tipoFixa !== "indeterminado") {
+            return false;
+        }
+        // Verificar se tem categoria válida
+        if (!d.categoria || d.categoria.trim() === "") {
+            return false;
+        }
+        // Verificar geração automática: 
+        // - Se for explicitamente false, não usar como template
+        // - Se for true ou undefined (padrão para despesas antigas), usar como template
+        if (d.gerarAutomaticamente === false) {
+            return false;
+        }
+        // Se for true ou undefined, usar como template
+        return true;
+    });
+    
+    // Buscar despesas fixas DETERMINADAS para verificar se devem ser geradas
+    const despesasFixasDeterminadas = despesas.filter(d => {
+        // Verificar se é despesa fixa determinada
+        if (d.tipo !== "fixa" || d.tipoFixa !== "determinado") {
+            return false;
+        }
+        // Verificar se tem categoria válida e datas de validade
+        if (!d.categoria || d.categoria.trim() === "" || !d.dataInicio || !d.dataFim) {
+            return false;
+        }
+        return true;
+    });
+    
+    // Agrupar por categoria e pegar apenas uma de cada (a primeira encontrada serve como template)
+    // Ordenar por data de criação (mais antigas primeiro) para manter consistência
+    const categoriasProcessadas = new Set();
+    const despesasFixasTemplates = [];
+    
+    // Ordenar por ID (que contém timestamp) para pegar a mais antiga de cada categoria
+    despesasFixasIndeterminadas.sort((a, b) => {
+        if (a.id < b.id) return -1;
+        if (a.id > b.id) return 1;
+        return 0;
+    });
+    
+    despesasFixasIndeterminadas.forEach(d => {
+        if (!categoriasProcessadas.has(d.categoria)) {
+            despesasFixasTemplates.push(d);
+            categoriasProcessadas.add(d.categoria);
+        }
+    });
+    
+    // Agrupar despesas determinadas por categoria
+    const categoriasDeterminadasProcessadas = new Set();
+    const despesasDeterminadasTemplates = [];
+    
+    despesasFixasDeterminadas.sort((a, b) => {
+        if (a.id < b.id) return -1;
+        if (a.id > b.id) return 1;
+        return 0;
+    });
+    
+    despesasFixasDeterminadas.forEach(d => {
+        if (!categoriasDeterminadasProcessadas.has(d.categoria)) {
+            despesasDeterminadasTemplates.push(d);
+            categoriasDeterminadasProcessadas.add(d.categoria);
+        }
+    });
+    
+    let novasDespesasCriadas = false;
+    
+    // Verificar cada mês no range
+    mesesParaVerificar.forEach(mesParaVerificar => {
+        // Processar despesas indeterminadas
+        despesasFixasTemplates.forEach(template => {
+            // Verificar se já existe uma despesa FIXA com a mesma categoria no mês
+            // IMPORTANTE: Verificar tanto indeterminadas quanto determinadas
+            const existeFixaNoMes = despesas.some(d => 
+                d.categoria === template.categoria && 
+                d.mes === mesParaVerificar &&
+                d.tipo === "fixa"
+            );
+            
+            if (existeFixaNoMes) {
+                return; // Já existe uma despesa fixa desta categoria no mês, não precisa criar
+            }
+            
+            // Despesas indeterminadas sempre criam se não existir
+            const [mesStr, anoStr] = mesParaVerificar.split('/');
+            const mesNum = parseInt(mesStr);
+            const anoNum = parseInt(anoStr);
+            
+            // Usar o primeiro dia do mês como data padrão
+            const dataObj = new Date(anoNum, mesNum - 1, 1);
+            const dia = String(dataObj.getDate()).padStart(2, '0');
+            const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+            const anoData = dataObj.getFullYear();
+            const dataFormatada = `${dia}/${mesData}/${anoData}`;
+            
+            despesas.push({
+                id: gerarId(),
+                nome: template.nome,
+                valor: template.valor,
+                tipo: "fixa",
+                tipoFixa: template.tipoFixa,
+                dataInicio: template.dataInicio,
+                dataFim: template.dataFim,
+                categoria: template.categoria,
+                descricao: template.descricao || "",
+                mes: mesParaVerificar,
+                data: dataFormatada
+            });
+            
+            novasDespesasCriadas = true;
+        });
+        
+        // Processar despesas determinadas
+        despesasDeterminadasTemplates.forEach(template => {
+            // Verificar se a geração automática está habilitada para esta despesa determinada
+            if (template.gerarAutomaticamente === false) {
+                return; // Geração automática desabilitada para esta despesa determinada
+            }
+            
+            // Verificar se já existe uma despesa FIXA com a mesma categoria no mês
+            const existeFixaNoMes = despesas.some(d => 
+                d.categoria === template.categoria && 
+                d.mes === mesParaVerificar &&
+                d.tipo === "fixa"
+            );
+            
+            if (existeFixaNoMes) {
+                return; // Já existe uma despesa fixa desta categoria no mês, não precisa criar
+            }
+            
+            // Verificar se o mês está dentro do período de validade da despesa determinada
+            const [mesStr, anoStr] = mesParaVerificar.split('/');
+            const mesNum = parseInt(mesStr);
+            const anoNum = parseInt(anoStr);
+            
+            // Primeiro e último dia do mês que está sendo verificado
+            const primeiroDiaMes = new Date(anoNum, mesNum - 1, 1);
+            const ultimoDiaMes = new Date(anoNum, mesNum, 0);
+            
+            // Período de validade da despesa determinada
+            const dataInicioDespesa = new Date(template.dataInicio + 'T00:00:00');
+            const dataFimDespesa = new Date(template.dataFim + 'T00:00:00');
+            
+            // Verificar se o mês se sobrepõe com o período de validade
+            // O mês está dentro do período se: primeiroDiaMes <= dataFimDespesa && dataInicioDespesa <= ultimoDiaMes
+            const mesDentroPeriodo = primeiroDiaMes <= dataFimDespesa && dataInicioDespesa <= ultimoDiaMes;
+            
+            if (!mesDentroPeriodo) {
+                return; // O mês não está dentro do período de validade, não criar
+            }
+            
+            // Criar nova despesa para o mês
+            const dataObj = new Date(anoNum, mesNum - 1, 1);
+            const dia = String(dataObj.getDate()).padStart(2, '0');
+            const mesData = String(dataObj.getMonth() + 1).padStart(2, '0');
+            const anoData = dataObj.getFullYear();
+            const dataFormatada = `${dia}/${mesData}/${anoData}`;
+            
+            despesas.push({
+                id: gerarId(),
+                nome: template.nome,
+                valor: template.valor,
+                tipo: "fixa",
+                tipoFixa: template.tipoFixa,
+                dataInicio: template.dataInicio,
+                dataFim: template.dataFim,
+                gerarAutomaticamente: template.gerarAutomaticamente !== undefined ? template.gerarAutomaticamente : true,
+                categoria: template.categoria,
+                descricao: template.descricao || "",
+                mes: mesParaVerificar,
+                data: dataFormatada
+            });
+            
+            novasDespesasCriadas = true;
+        });
+    }); // Fim do forEach de mesesParaVerificar
+    
+    // Salvar se houver novas despesas criadas
+    if (novasDespesasCriadas) {
+        salvar();
+    }
+}
+
+// ========================= RENDER TABELAS =========================
+function render() {
+    // Verificar e criar despesas fixas automaticamente antes de renderizar
+    verificarECriarDespesasFixas();
+    
+    // Atualizar exibição do período filtrado
+    const mesFiltradoDisplay = document.getElementById("mesFiltradoDisplay");
+    const mesFiltradoTexto = document.getElementById("mesFiltradoTexto");
+    
+    if (mesFiltradoInicial || mesFiltradoFinal) {
+        mesFiltradoDisplay.style.display = "block";
+        if (mesFiltradoInicial && mesFiltradoFinal) {
+            mesFiltradoTexto.textContent = `${mesFiltradoInicial} - ${mesFiltradoFinal}`;
+        } else if (mesFiltradoInicial) {
+            mesFiltradoTexto.textContent = `A partir de ${mesFiltradoInicial}`;
+        } else {
+            mesFiltradoTexto.textContent = `Até ${mesFiltradoFinal}`;
+        }
+    } else {
+        mesFiltradoDisplay.style.display = "none";
+    }
+    
+    let listaE = "";
+    let listaD = "";
+
+    // Filtrar por range de meses
+    let entradasFiltradas = entradas;
+    if (mesFiltradoInicial || mesFiltradoFinal) {
+        entradasFiltradas = entradas.filter(e => {
+            if (!e.mes) return false;
+            
+            const [mesStr, anoStr] = e.mes.split('/').map(Number);
+            const dataItem = new Date(anoStr, mesStr - 1, 1); // Primeiro dia do mês do item
+            
+            let dentroRange = true;
+            if (mesFiltradoInicial) {
+                const [mesIni, anoIni] = mesFiltradoInicial.split('/').map(Number);
+                const dataInicial = new Date(anoIni, mesIni - 1, 1); // Primeiro dia do mês inicial
+                dentroRange = dentroRange && dataItem >= dataInicial;
+            }
+            if (mesFiltradoFinal) {
+                const [mesFim, anoFim] = mesFiltradoFinal.split('/').map(Number);
+                const dataFinal = new Date(anoFim, mesFim, 0); // Último dia do mês final
+                dentroRange = dentroRange && dataItem <= dataFinal;
+            }
+            return dentroRange;
+        });
+    }
+
+    // Aplicar filtro de categoria de entrada
+    if (filtroCategoriaEntrada !== "todas") {
+        entradasFiltradas = entradasFiltradas.filter(e => e.categoria === filtroCategoriaEntrada);
+    }
+
+    // Filtrar por range de meses
+    let despesasFiltradas = despesas;
+    if (mesFiltradoInicial || mesFiltradoFinal) {
+        despesasFiltradas = despesas.filter(d => {
+            if (!d.mes) return false;
+            
+            // Para despesas determinadas, verificar se o período de validade (dataInicio - dataFim) se sobrepõe com o filtro
+            if (d.tipo === "fixa" && d.tipoFixa === "determinado" && d.dataInicio && d.dataFim) {
+                // Converter datas de validade da despesa
+                const dataInicioDespesa = new Date(d.dataInicio + 'T00:00:00');
+                const dataFimDespesa = new Date(d.dataFim + 'T00:00:00');
+                
+                // Converter range do filtro
+                let dataInicialFiltro = null;
+                let dataFinalFiltro = null;
+                
+                if (mesFiltradoInicial) {
+                    const [mesIni, anoIni] = mesFiltradoInicial.split('/').map(Number);
+                    dataInicialFiltro = new Date(anoIni, mesIni - 1, 1); // Primeiro dia do mês inicial
+                }
+                if (mesFiltradoFinal) {
+                    const [mesFim, anoFim] = mesFiltradoFinal.split('/').map(Number);
+                    dataFinalFiltro = new Date(anoFim, mesFim, 0); // Último dia do mês final
+                }
+                
+                // Verificar se os períodos se sobrepõem
+                // Dois períodos se sobrepõem se: inicio1 <= fim2 && inicio2 <= fim1
+                if (dataInicialFiltro && dataFinalFiltro) {
+                    return dataInicioDespesa <= dataFinalFiltro && dataInicialFiltro <= dataFimDespesa;
+                } else if (dataInicialFiltro) {
+                    // Apenas mês inicial: verificar se a despesa termina depois do início do filtro
+                    return dataFimDespesa >= dataInicialFiltro;
+                } else if (dataFinalFiltro) {
+                    // Apenas mês final: verificar se a despesa começa antes do fim do filtro
+                    return dataInicioDespesa <= dataFinalFiltro;
+                }
+            }
+            
+            // Para outras despesas, usar a lógica normal baseada no mês
+            const [mesStr, anoStr] = d.mes.split('/').map(Number);
+            const dataItem = new Date(anoStr, mesStr - 1, 1); // Primeiro dia do mês do item
+            
+            let dentroRange = true;
+            if (mesFiltradoInicial) {
+                const [mesIni, anoIni] = mesFiltradoInicial.split('/').map(Number);
+                const dataInicial = new Date(anoIni, mesIni - 1, 1); // Primeiro dia do mês inicial
+                dentroRange = dentroRange && dataItem >= dataInicial;
+            }
+            if (mesFiltradoFinal) {
+                const [mesFim, anoFim] = mesFiltradoFinal.split('/').map(Number);
+                const dataFinal = new Date(anoFim, mesFim, 0); // Último dia do mês final
+                dentroRange = dentroRange && dataItem <= dataFinal;
+            }
+            return dentroRange;
+        });
+    }
+
+    // Aplicar filtro de tipo de despesa
+    if (filtroTipoDespesa !== "todas") {
+        despesasFiltradas = despesasFiltradas.filter(d => d.tipo === filtroTipoDespesa);
+    }
+    
+    // Aplicar filtro de categoria de despesa
+    if (filtroCategoriaDespesa !== "todas") {
+        despesasFiltradas = despesasFiltradas.filter(d => d.categoria === filtroCategoriaDespesa);
+    }
+
+    // Ordenar dados
+    const entradasOrdenadas = ordenarDados(entradasFiltradas);
+    const despesasOrdenadas = ordenarDados(despesasFiltradas);
+
+    // ===== Entradas =====
+    if (entradasOrdenadas.length === 0) {
+        let mensagemFiltroEntrada = "";
+        if (mesFiltradoInicial || mesFiltradoFinal) {
+            if (mesFiltradoInicial && mesFiltradoFinal) {
+                mensagemFiltroEntrada += ` para ${mesFiltradoInicial} - ${mesFiltradoFinal}`;
+            } else if (mesFiltradoInicial) {
+                mensagemFiltroEntrada += ` a partir de ${mesFiltradoInicial}`;
+            } else {
+                mensagemFiltroEntrada += ` até ${mesFiltradoFinal}`;
+            }
+        }
+        if (filtroCategoriaEntrada !== "todas") {
+            mensagemFiltroEntrada += mensagemFiltroEntrada ? ` - ${filtroCategoriaEntrada}` : ` (categoria: ${filtroCategoriaEntrada})`;
+        }
+        listaE = `
+            <tr>
+                <td colspan="4" class="py-4 text-center text-gray-500">
+                    Nenhuma entrada cadastrada${mensagemFiltroEntrada}
+                </td>
+            </tr>
+        `;
+    } else {
+        entradasOrdenadas.forEach((e) => {
+            const categoriaDisplay = e.categoria ? `<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">${sanitizar(e.categoria)}</span>` : '<span class="text-gray-400">-</span>';
+            const tooltipData = e.data ? `Criado em ${sanitizar(e.data)}` : 'Criado em: não informada';
+        listaE += `
+                <tr class="border-b hover:bg-gray-50" title="${tooltipData}">
+                    <td class="py-2">${categoriaDisplay}</td>
+                    <td class="py-2">R$ ${formatarMoeda(e.valor)}</td>
+                <td class="py-2">${e.mes}</td>
+                <td class="py-2 space-x-2">
+                        <button onclick="editarEntrada('${e.id}')" 
+                                class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                                title="Editar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="removerEntrada('${e.id}')" 
+                                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                title="Excluir">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                </td>
+            </tr>
+        `;
+    });
+    }
+
+    document.getElementById("listaEntradas").innerHTML = listaE;
+
+    // ===== Despesas =====
+    if (despesasOrdenadas.length === 0) {
+        let mensagemFiltro = "";
+        if (mesFiltradoInicial || mesFiltradoFinal) {
+            if (mesFiltradoInicial && mesFiltradoFinal) {
+                mensagemFiltro += ` para ${mesFiltradoInicial} - ${mesFiltradoFinal}`;
+            } else if (mesFiltradoInicial) {
+                mensagemFiltro += ` a partir de ${mesFiltradoInicial}`;
+            } else {
+                mensagemFiltro += ` até ${mesFiltradoFinal}`;
+            }
+        }
+        if (filtroTipoDespesa !== "todas") {
+            mensagemFiltro += mensagemFiltro ? ` (${filtroTipoDespesa === "fixa" ? "fixas" : "variáveis"})` : ` (${filtroTipoDespesa === "fixa" ? "fixas" : "variáveis"})`;
+        }
+        if (filtroCategoriaDespesa !== "todas") {
+            mensagemFiltro += mensagemFiltro ? ` - ${filtroCategoriaDespesa}` : ` (categoria: ${filtroCategoriaDespesa})`;
+        }
+        listaD = `
+            <tr>
+                <td colspan="5" class="py-4 text-center text-gray-500">
+                    Nenhuma despesa cadastrada${mensagemFiltro}
+                </td>
+            </tr>
+        `;
+    } else {
+        despesasOrdenadas.forEach((d) => {
+            const tipoTexto = d.tipo === "fixa" ? "Fixa" : "Variável";
+            const tipoCor = d.tipo === "fixa" ? "bg-orange-100 text-orange-800" : "bg-pink-100 text-pink-800";
+            
+            // Adicionar subtipo para despesas fixas
+            let tipoDisplay = `<span class="px-2 py-1 rounded text-xs font-medium ${tipoCor}">${tipoTexto}</span>`;
+            if (d.tipo === "fixa" && d.tipoFixa) {
+                const subtipoTexto = d.tipoFixa === "indeterminado" ? "Indeterminado" : "Determinado";
+                const subtipoCor = d.tipoFixa === "indeterminado" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800";
+                tipoDisplay += `<br><span class="px-2 py-1 rounded text-xs font-medium ${subtipoCor} mt-1 inline-block">${subtipoTexto}</span>`;
+                
+                // Para despesas determinadas, mostrar intervalo de datas
+                if (d.tipoFixa === "determinado" && d.dataInicio && d.dataFim) {
+                    try {
+                        // As datas vêm no formato yyyy-mm-dd
+                        const [anoInicio, mesInicio, diaInicio] = d.dataInicio.split('-');
+                        const [anoFim, mesFim, diaFim] = d.dataFim.split('-');
+                        const dataInicioFormatada = `${diaInicio}/${mesInicio}/${anoInicio}`;
+                        const dataFimFormatada = `${diaFim}/${mesFim}/${anoFim}`;
+                        tipoDisplay += `<br><span class="text-xs text-gray-600 mt-1 block">${dataInicioFormatada} - ${dataFimFormatada}</span>`;
+                    } catch (e) {
+                        // Se houver erro na formatação, não mostrar intervalo
+                    }
+                }
+            }
+            
+            const categoriaBadge = d.categoria 
+                ? `<span class="px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800">${sanitizar(d.categoria)}</span>`
+                : '<span class="text-gray-400 text-sm">-</span>';
+            
+            // Montar tooltip com data de criação e descrição
+            let tooltipParts = [];
+            if (d.data) {
+                tooltipParts.push(`Criado em ${sanitizar(d.data)}`);
+            }
+            if (d.descricao && d.descricao.trim()) {
+                tooltipParts.push(`Descrição: ${sanitizar(d.descricao)}`);
+            }
+            const tooltipData = tooltipParts.length > 0 ? tooltipParts.join('\n') : 'Criado em: não informada';
+            
+        listaD += `
+                <tr class="border-b hover:bg-gray-50" title="${tooltipData}">
+                    <td class="py-2">${categoriaBadge}</td>
+                    <td class="py-2">R$ ${formatarMoeda(d.valor)}</td>
+                    <td class="py-2">
+                        ${tipoDisplay}
+                    </td>
+                <td class="py-2">${d.mes}</td>
+                    <td class="py-2 space-x-2">
+                        <button onclick="editarDespesa('${d.id}')" 
+                                class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                                title="Editar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                            </svg>
+                        </button>
+                        <button onclick="removerDespesa('${d.id}')" 
+                                class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" 
+                                title="Excluir">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                </td>
+            </tr>
+        `;
+    });
+    }
+
+    document.getElementById("listaDespesas").innerHTML = listaD;
+
+    // ========================= RESUMO =========================
+    const totalE = entradasFiltradas.reduce((acc, e) => acc + e.valor, 0);
+    const totalD = despesasFiltradas.reduce((acc, d) => acc + d.valor, 0);
+    const saldo = totalE - totalD;
+
+    // Calcular totais por tipo de despesa
+    const despesasFixas = despesasFiltradas.filter(d => d.tipo === "fixa");
+    const despesasVariaveis = despesasFiltradas.filter(d => d.tipo === "variavel");
+    const totalDFixas = despesasFixas.reduce((acc, d) => acc + d.valor, 0);
+    const totalDVariaveis = despesasVariaveis.reduce((acc, d) => acc + d.valor, 0);
+
+    document.getElementById("totalEntradas").innerText = `R$ ${formatarMoeda(totalE)}`;
+    document.getElementById("totalDespesas").innerText = `R$ ${formatarMoeda(totalD)}`;
+    document.getElementById("totalDespesasFixas").innerText = `R$ ${formatarMoeda(totalDFixas)}`;
+    document.getElementById("totalDespesasVariaveis").innerText = `R$ ${formatarMoeda(totalDVariaveis)}`;
+    
+    // Cor do saldo baseada no valor
+    const saldoElement = document.getElementById("saldo");
+    saldoElement.innerText = `R$ ${formatarMoeda(saldo)}`;
+    saldoElement.className = saldo >= 0 
+        ? "text-3xl font-bold text-green-700" 
+        : "text-3xl font-bold text-red-700";
+
+    // Investimento e lazer apenas se saldo positivo
+    const investimentoElement = document.getElementById("investimento");
+    const lazerElement = document.getElementById("lazer");
+    const distribuicaoSaldo = document.getElementById("distribuicaoSaldo");
+    
+    if (saldo > 0) {
+        const investimento = saldo * (percentualInvestimento / 100);
+        const lazer = saldo * (percentualLazer / 100);
+
+        investimentoElement.innerText = `R$ ${formatarMoeda(investimento)}`;
+        lazerElement.innerText = `R$ ${formatarMoeda(lazer)}`;
+        distribuicaoSaldo.style.display = "grid";
+    } else {
+        distribuicaoSaldo.style.display = "none";
+    }
+    
+    // Atualizar badges com percentuais sempre
+    document.getElementById("badgeInvestimento").textContent = `${percentualInvestimento}%`;
+    document.getElementById("badgeLazer").textContent = `${percentualLazer}%`;
+}
+
+
+// ========================= OBTER MÊS ATUAL =========================
+function obterMesAtual() {
+    const hoje = new Date();
+    const m = String(hoje.getMonth() + 1).padStart(2, '0');
+    const y = hoje.getFullYear();
+    return `${m}/${y}`;
+}
+
+// ========================= OBTER DATA ATUAL =========================
+function obterDataAtual() {
+    const hoje = new Date();
+    const ano = hoje.getFullYear();
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+    const dia = String(hoje.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`; // Formato yyyy-mm-dd para input type="date"
+}
+
+// ========================= INICIALIZAÇÃO =========================
+carregarDados();
+
+// Preencher filtro com mês atual e aplicar automaticamente
+const mesAtual = obterMesAtual();
+document.getElementById("filtroMesInicial").value = mesAtual;
+document.getElementById("filtroMesFinal").value = mesAtual;
+mesFiltradoInicial = mesAtual;
+mesFiltradoFinal = mesAtual;
+filtrarMesRange();
+
+// Preencher campo de destino de importação com mês atual
+document.getElementById("importarMesDestino").value = mesAtual;
+
+// Preencher campos de mês com mês atual
+document.getElementById("entradaMes").value = mesAtual;
+document.getElementById("despesaMes").value = mesAtual;
+
+// Preencher campos de data com data atual
+const dataAtual = obterDataAtual();
+document.getElementById("entradaData").value = dataAtual;
+document.getElementById("despesaData").value = dataAtual;
+
+// Configurar campos iniciais do formulário de despesa
+atualizarCamposDespesa();
+
+// Atualizar filtro de categorias
+atualizarFiltroCategorias();
+
+render();
+
+</script>
+
+</body>
+</html>
