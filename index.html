@@ -8,6 +8,9 @@
 <!-- TailwindCSS CDN -->
 <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 
 <style>
     /* Animação para toast */
@@ -582,7 +585,7 @@
         </div>
 
         <!-- Distribuição do Saldo -->
-        <div id="distribuicaoSaldo" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div id="distribuicaoSaldo" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <!-- Card: Investimento -->
             <div class="bg-blue-50 border-l-4 border-blue-500 p-5 rounded-lg">
                 <div class="flex items-center justify-between mb-3">
@@ -610,6 +613,19 @@
                 </div>
                 <p id="lazer" class="text-2xl font-bold text-purple-700"></p>
             </div>
+        </div>
+
+        <!-- Gráfico de Pizza: Despesas por Categoria -->
+        <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-6 text-gray-700">Despesas por Categoria</h3>
+            <div class="flex justify-center items-start">
+                <div class="w-full max-w-5xl">
+                    <div class="relative" style="height: 550px; min-height: 550px;">
+                        <canvas id="graficoDespesasCategoria"></canvas>
+                    </div>
+                </div>
+            </div>
+            <p id="graficoMensagemVazio" class="text-center text-gray-500 py-8 hidden">Nenhuma despesa com categoria cadastrada para exibir no gráfico.</p>
         </div>
     </div>
 </div>
@@ -4542,6 +4558,169 @@ function render() {
     // Atualizar badges com percentuais sempre
     document.getElementById("badgeInvestimento").textContent = `${percentualInvestimento}%`;
     document.getElementById("badgeLazer").textContent = `${percentualLazer}%`;
+    
+    // Atualizar gráfico de pizza
+    atualizarGraficoDespesasCategoria(despesasFiltradas);
+}
+
+// ========================= GRÁFICO DE PIZZA: DESPESAS POR CATEGORIA =========================
+let graficoDespesasCategoria = null;
+
+function atualizarGraficoDespesasCategoria(despesasFiltradas) {
+    const canvas = document.getElementById("graficoDespesasCategoria");
+    const mensagemVazio = document.getElementById("graficoMensagemVazio");
+    
+    if (!canvas) return;
+    
+    // Agrupar despesas por categoria
+    const despesasPorCategoria = {};
+    let totalComCategoria = 0;
+    
+    despesasFiltradas.forEach(despesa => {
+        const categoria = despesa.categoria && despesa.categoria.trim() !== "" 
+            ? despesa.categoria 
+            : "Sem Categoria";
+        
+        if (!despesasPorCategoria[categoria]) {
+            despesasPorCategoria[categoria] = 0;
+        }
+        despesasPorCategoria[categoria] += despesa.valor;
+        totalComCategoria += despesa.valor;
+    });
+    
+    // Verificar se há despesas com categoria
+    if (totalComCategoria === 0 || Object.keys(despesasPorCategoria).length === 0) {
+        if (graficoDespesasCategoria) {
+            graficoDespesasCategoria.destroy();
+            graficoDespesasCategoria = null;
+        }
+        canvas.style.display = "none";
+        if (mensagemVazio) mensagemVazio.classList.remove("hidden");
+        return;
+    }
+    
+    // Mostrar canvas e ocultar mensagem
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    if (mensagemVazio) mensagemVazio.classList.add("hidden");
+    
+    // Preparar dados para o gráfico
+    const categorias = Object.keys(despesasPorCategoria);
+    const valores = Object.values(despesasPorCategoria);
+    
+    // Ordenar por valor (maior para menor)
+    const indicesOrdenados = valores
+        .map((valor, index) => ({ valor, index }))
+        .sort((a, b) => b.valor - a.valor)
+        .map(item => item.index);
+    
+    const categoriasOrdenadas = indicesOrdenados.map(i => categorias[i]);
+    const valoresOrdenados = indicesOrdenados.map(i => valores[i]);
+    
+    // Gerar cores para as categorias
+    const cores = [
+        '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+        '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#3b82f6',
+        '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
+        '#f43f5e', '#64748b', '#475569', '#334155', '#1e293b'
+    ];
+    
+    const coresCategorias = categoriasOrdenadas.map((_, index) => {
+        return cores[index % cores.length];
+    });
+    
+    // Destruir gráfico anterior se existir
+    if (graficoDespesasCategoria) {
+        graficoDespesasCategoria.destroy();
+    }
+    
+    // Criar novo gráfico
+    const ctx = canvas.getContext('2d');
+    graficoDespesasCategoria = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: categoriasOrdenadas.map(cat => sanitizar(cat)),
+            datasets: [{
+                data: valoresOrdenados,
+                backgroundColor: coresCategorias,
+                borderColor: '#ffffff',
+                borderWidth: 2,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: 20
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'right',
+                    align: 'center',
+                    labels: {
+                        padding: 12,
+                        font: {
+                            size: 13,
+                            family: "'Inter', sans-serif"
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (data.labels.length && data.datasets.length) {
+                                return data.labels.map((label, i) => {
+                                    const value = data.datasets[0].data[i];
+                                    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    
+                                    // Truncar label se muito longo
+                                    const labelTruncado = label.length > 20 ? label.substring(0, 20) + '...' : label;
+                                    
+                                    return {
+                                        text: `${labelTruncado}: R$ ${formatarMoeda(value)} (${percentage}%)`,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        strokeStyle: data.datasets[0].borderColor,
+                                        lineWidth: data.datasets[0].borderWidth,
+                                        hidden: false,
+                                        index: i,
+                                        fontColor: '#374151'
+                                    };
+                                });
+                            }
+                            return [];
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: R$ ${formatarMoeda(value)} (${percentage}%)`;
+                        }
+                    },
+                    padding: 12,
+                    titleFont: {
+                        size: 14
+                    },
+                    bodyFont: {
+                        size: 13
+                    }
+                }
+            }
+        }
+    });
 }
 
 
