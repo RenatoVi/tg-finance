@@ -826,8 +826,8 @@
 
 <!-- ========================== MODAL ADICIONAR DESPESA ========================== -->
 <div id="modalAdicionarDespesa" class="modal-overlay">
-    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
-        <div class="flex items-center justify-between mb-4">
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
             <h3 class="text-2xl font-bold">Adicionar Despesa</h3>
             <button onclick="fecharModalAdicionarDespesa()" class="text-gray-400 hover:text-gray-600">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -836,99 +836,151 @@
             </button>
         </div>
 
-        <label class="block text-gray-600 font-medium mt-3">Tipo</label>
-        <select id="modalDespesaTipo" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesaModal()">
-            <option value="fixa">Fixa</option>
-            <option value="variavel">Variável</option>
-        </select>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Coluna Esquerda -->
+            <div class="space-y-4">
+                <!-- Tipo -->
+                <div>
+                    <label class="block text-gray-600 font-medium mb-2">Tipo</label>
+                    <select id="modalDespesaTipo" class="w-full p-3 border rounded-lg" onchange="atualizarCamposDespesaModal()">
+                        <option value="fixa">Fixa</option>
+                        <option value="variavel">Variável</option>
+                    </select>
+                </div>
 
-        <!-- Tipo de Despesa Fixa (Indeterminado/Determinado) -->
-        <div id="modalDespesaTipoFixaContainer" style="display: none;">
-            <label class="block text-gray-600 font-medium mb-2">Tipo de Despesa Fixa</label>
-            <select id="modalDespesaTipoFixa" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarCamposDespesaModal()">
-                <option value="indeterminado">Indeterminado</option>
-                <option value="determinado">Determinado</option>
-            </select>
+                <!-- Tipo de Despesa Fixa (Indeterminado/Determinado) -->
+                <div id="modalDespesaTipoFixaContainer" style="display: none;">
+                    <label class="block text-gray-600 font-medium mb-2">Tipo de Despesa Fixa</label>
+                    <select id="modalDespesaTipoFixa" class="w-full p-3 border rounded-lg" onchange="atualizarCamposDespesaModal()">
+                        <option value="indeterminado">Indeterminado</option>
+                        <option value="determinado">Determinado</option>
+                    </select>
+                </div>
 
-            <!-- Campos para Despesa Determinada -->
-            <div id="modalDespesaDeterminadaContainer" style="display: none;">
-                <label class="block text-gray-600 font-medium mb-2">Data de Início</label>
-                <input id="modalDespesaDataInicio" type="date" class="w-full p-3 border rounded-lg mb-3" onchange="atualizarMinDataFim()">
-                <p id="modalDespesaDataInicioErro" class="error-message hidden"></p>
+                <!-- Campos para Despesa Determinada -->
+                <div id="modalDespesaDeterminadaContainer" style="display: none;" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-600 font-medium mb-2">Tipo de Período</label>
+                        <select id="modalDespesaTipoPeriodo" class="w-full p-3 border rounded-lg" onchange="atualizarCamposDespesaModal()">
+                            <option value="range">Range de Data</option>
+                            <option value="parcelas">Número de Parcelas</option>
+                        </select>
+                    </div>
 
-                <label class="block text-gray-600 font-medium mb-2">Data de Fim</label>
-                <input id="modalDespesaDataFim" type="date" class="w-full p-3 border rounded-lg mb-3">
-                <p id="modalDespesaDataFimErro" class="error-message hidden"></p>
+                    <!-- Campos para Range de Data -->
+                    <div id="modalDespesaRangeDataContainer" style="display: none;" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-600 font-medium mb-2">Data de Início</label>
+                            <input id="modalDespesaDataInicio" type="date" class="w-full p-3 border rounded-lg" onchange="atualizarMinDataFim()">
+                            <p id="modalDespesaDataInicioErro" class="error-message hidden"></p>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-600 font-medium mb-2">Data de Fim</label>
+                            <input id="modalDespesaDataFim" type="date" class="w-full p-3 border rounded-lg">
+                            <p id="modalDespesaDataFimErro" class="error-message hidden"></p>
+                        </div>
+                    </div>
+
+                    <!-- Campos para Número de Parcelas -->
+                    <div id="modalDespesaParcelasContainer" style="display: none;">
+                        <label class="block text-gray-600 font-medium mb-2">Número de Parcelas</label>
+                        <input id="modalDespesaNumeroParcelas" type="number" min="1" max="120" 
+                               class="w-full p-3 border rounded-lg" placeholder="ex: 12"
+                               oninput="validarNumeroParcelas()">
+                        <p id="modalDespesaNumeroParcelasErro" class="error-message hidden"></p>
+                        <p class="text-sm text-gray-500 mt-2">A primeira parcela será criada no mês atual e as demais nos meses seguintes.</p>
+                    </div>
+                </div>
+
+                <!-- Checkbox para gerar automaticamente (apenas para indeterminadas) -->
+                <div id="modalDespesaGerarAutomaticamenteContainer" style="display: none;">
+                    <label class="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
+                        <input id="modalDespesaGerarAutomaticamente" type="checkbox" checked
+                               class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                        <span class="text-gray-700 text-sm">Gerar esta despesa automaticamente em novos meses</span>
+                    </label>
+                </div>
+
+                <!-- Categoria -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label id="modalDespesaCategoriaLabel" class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
+                        <button onclick="abrirModalCategorias()" 
+                                class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
+                            Gerenciar
+                        </button>
+                    </div>
+                    <select id="modalDespesaCategoria" class="w-full p-3 border rounded-lg">
+                        <option value="">Nenhuma</option>
+                    </select>
+                    <p id="modalDespesaCategoriaErro" class="error-message hidden"></p>
+                </div>
             </div>
 
-            <!-- Checkbox para gerar automaticamente (apenas para indeterminadas) -->
-            <div id="modalDespesaGerarAutomaticamenteContainer" style="display: none;">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input id="modalDespesaGerarAutomaticamente" type="checkbox" checked
-                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                    <span class="text-gray-700">Gerar esta despesa automaticamente em novos meses</span>
-                </label>
+            <!-- Coluna Direita -->
+            <div class="space-y-4">
+                <!-- Valor -->
+                <div>
+                    <label class="block text-gray-600 font-medium mb-2">Valor (R$)</label>
+                    <input id="modalDespesaValor" type="text"
+                           class="w-full p-3 border rounded-lg" placeholder="ex: 300,00"
+                           oninput="aplicarMascaraMoeda(this, 'modalDespesaValorErro')"
+                           onkeypress="if(event.key === 'Enter') addDespesaModal()">
+                    <p id="modalDespesaValorErro" class="error-message hidden"></p>
+                </div>
+
+                <!-- Mês -->
+                <div>
+                    <label class="block text-gray-600 font-medium mb-2">Mês (mm/yyyy)</label>
+                    <div class="flex items-center gap-2">
+                        <button onclick="alterarMesDespesaModal(-1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <input id="modalDespesaMes" type="text" maxlength="7"
+                               class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
+                               oninput="aplicarMascaraData(this, 'modalDespesaMesErro'); if(document.getElementById('modalDespesaData').value) validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro');"
+                               onkeypress="if(event.key === 'Enter') addDespesaModal()">
+                        <button onclick="alterarMesDespesaModal(1)" 
+                                class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <p id="modalDespesaMesErro" class="error-message hidden"></p>
+                </div>
+
+                <!-- Data -->
+                <div>
+                    <label class="block text-gray-600 font-medium mb-2">Data (dd/mm/yyyy)</label>
+                    <input id="modalDespesaData" type="date"
+                           class="w-full p-3 border rounded-lg"
+                           onchange="validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro')"
+                           onkeypress="if(event.key === 'Enter') addDespesaModal()">
+                    <p id="modalDespesaDataErro" class="error-message hidden"></p>
+                </div>
+
+                <!-- Descrição -->
+                <div>
+                    <label class="block text-gray-600 font-medium mb-2">Descrição <span class="text-gray-400 text-sm">(opcional)</span></label>
+                    <textarea id="modalDespesaDescricao" 
+                              class="w-full p-3 border rounded-lg" 
+                              rows="4" 
+                              placeholder="Adicione uma descrição para esta despesa..."></textarea>
+                </div>
             </div>
         </div>
 
-        <div class="flex items-center justify-between mb-2">
-            <label id="modalDespesaCategoriaLabel" class="block text-gray-600 font-medium">Categoria <span class="text-gray-400 text-sm">(opcional)</span></label>
-            <button onclick="abrirModalCategorias()" 
-                    class="text-sm text-purple-600 hover:text-purple-700 hover:underline">
-                Gerenciar
-            </button>
-        </div>
-        <select id="modalDespesaCategoria" class="w-full p-3 border rounded-lg mb-3">
-            <option value="">Nenhuma</option>
-        </select>
-        <p id="modalDespesaCategoriaErro" class="error-message hidden"></p>
-
-        <label class="block text-gray-600 font-medium mt-3">Valor (R$)</label>
-        <input id="modalDespesaValor" type="text"
-               class="w-full p-3 border rounded-lg mb-1" placeholder="ex: 300,00"
-               oninput="aplicarMascaraMoeda(this, 'modalDespesaValorErro')"
-               onkeypress="if(event.key === 'Enter') addDespesaModal()">
-        <p id="modalDespesaValorErro" class="error-message hidden"></p>
-
-        <label class="block text-gray-600 font-medium">Mês (mm/yyyy)</label>
-        <div class="flex items-center gap-2 mb-1">
-            <button onclick="alterarMesDespesaModal(-1)" 
-                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                </svg>
-            </button>
-            <input id="modalDespesaMes" type="text" maxlength="7"
-                   class="flex-1 p-3 border rounded-lg text-center" placeholder="ex: 12/2025"
-                   oninput="aplicarMascaraData(this, 'modalDespesaMesErro'); if(document.getElementById('modalDespesaData').value) validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro');"
-                   onkeypress="if(event.key === 'Enter') addDespesaModal()">
-            <button onclick="alterarMesDespesaModal(1)" 
-                    class="p-2 border rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-            </button>
-        </div>
-        <p id="modalDespesaMesErro" class="error-message hidden"></p>
-
-        <label class="block text-gray-600 font-medium mt-3">Data (dd/mm/yyyy)</label>
-        <input id="modalDespesaData" type="date"
-               class="w-full p-3 border rounded-lg mb-1"
-               onchange="validarDataDentroMes('modalDespesaData', 'modalDespesaMes', 'modalDespesaDataErro')"
-               onkeypress="if(event.key === 'Enter') addDespesaModal()">
-        <p id="modalDespesaDataErro" class="error-message hidden"></p>
-
-        <label class="block text-gray-600 font-medium mt-3">Descrição <span class="text-gray-400 text-sm">(opcional)</span></label>
-        <textarea id="modalDespesaDescricao" 
-                  class="w-full p-3 border rounded-lg mb-1" 
-                  rows="3" 
-                  placeholder="Adicione uma descrição para esta despesa..."></textarea>
-
-        <div class="flex gap-3 mt-4">
-            <button onclick="addDespesaModal()" class="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700">
+        <!-- Botões -->
+        <div class="flex gap-3 mt-6 pt-6 border-t">
+            <button onclick="addDespesaModal()" class="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 font-medium">
                 Adicionar
             </button>
-            <button onclick="fecharModalAdicionarDespesa()" class="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400">
+            <button onclick="fecharModalAdicionarDespesa()" class="flex-1 bg-gray-300 text-gray-800 py-3 rounded-lg hover:bg-gray-400 font-medium">
                 Cancelar
             </button>
         </div>
@@ -1977,6 +2029,18 @@ function abrirModalAdicionarDespesa() {
     document.getElementById("modalDespesaDataFim").value = "";
     document.getElementById("modalDespesaDescricao").value = "";
     
+    // Inicializar tipo de período para determinado
+    const tipoPeriodoSelect = document.getElementById("modalDespesaTipoPeriodo");
+    if (tipoPeriodoSelect) {
+        tipoPeriodoSelect.value = "range";
+    }
+    
+    // Limpar campo de parcelas
+    const numeroParcelasInput = document.getElementById("modalDespesaNumeroParcelas");
+    if (numeroParcelasInput) {
+        numeroParcelasInput.value = "";
+    }
+    
     // Atualizar campos visuais para mostrar os campos de despesa fixa
     atualizarCamposDespesaModal();
     
@@ -2098,15 +2162,41 @@ function atualizarCamposDespesaModal() {
                 gerarAutomaticamenteContainer.style.display = "block"; // Mostrar checkbox também para determinadas
             }
             
-            // Preencher datas com a data de hoje se estiverem vazias
-            if (dataInicio && !dataInicio.value) {
-                dataInicio.value = obterDataAtual();
+            // Verificar tipo de período (range ou parcelas)
+            const tipoPeriodoSelect = document.getElementById("modalDespesaTipoPeriodo");
+            const rangeDataContainer = document.getElementById("modalDespesaRangeDataContainer");
+            const parcelasContainer = document.getElementById("modalDespesaParcelasContainer");
+            
+            if (tipoPeriodoSelect) {
+                const tipoPeriodo = tipoPeriodoSelect.value;
+                
+                if (tipoPeriodo === "range") {
+                    // Mostrar campos de range de data
+                    if (rangeDataContainer) rangeDataContainer.style.display = "block";
+                    if (parcelasContainer) parcelasContainer.style.display = "none";
+                    
+                    // Limpar erros de parcelas
+                    limparErro('modalDespesaNumeroParcelas', 'modalDespesaNumeroParcelasErro');
+                    
+                    // Preencher datas com a data de hoje se estiverem vazias
+                    if (dataInicio && !dataInicio.value) {
+                        dataInicio.value = obterDataAtual();
+                    }
+                    if (dataFim && !dataFim.value) {
+                        dataFim.value = obterDataAtual();
+                    }
+                    // Atualizar min da data fim para não permitir datas menores que a data início
+                    atualizarMinDataFim();
+                } else if (tipoPeriodo === "parcelas") {
+                    // Mostrar campo de número de parcelas
+                    if (rangeDataContainer) rangeDataContainer.style.display = "none";
+                    if (parcelasContainer) parcelasContainer.style.display = "block";
+                    
+                    // Limpar erros de range de data
+                    limparErro('modalDespesaDataInicio', 'modalDespesaDataInicioErro');
+                    limparErro('modalDespesaDataFim', 'modalDespesaDataFimErro');
+                }
             }
-            if (dataFim && !dataFim.value) {
-                dataFim.value = obterDataAtual();
-            }
-            // Atualizar min da data fim para não permitir datas menores que a data início
-            atualizarMinDataFim();
         } else {
             if (despesaDeterminadaContainer) {
                 despesaDeterminadaContainer.style.display = "none";
@@ -2122,6 +2212,46 @@ function atualizarCamposDespesaModal() {
         if (despesaDeterminadaContainer) despesaDeterminadaContainer.style.display = "none";
         if (gerarAutomaticamenteContainer) gerarAutomaticamenteContainer.style.display = "none";
     }
+}
+
+// Função para validar número de parcelas
+function validarNumeroParcelas() {
+    const input = document.getElementById("modalDespesaNumeroParcelas");
+    const erro = document.getElementById("modalDespesaNumeroParcelasErro");
+    
+    if (!input) return;
+    
+    const valor = parseInt(input.value);
+    
+    if (!input.value || input.value === "") {
+        if (erro) erro.classList.add('hidden');
+        input.classList.remove('input-error', 'input-success');
+        return;
+    }
+    
+    if (isNaN(valor) || valor < 1) {
+        if (erro) {
+            erro.textContent = 'O número de parcelas deve ser pelo menos 1';
+            erro.classList.remove('hidden');
+        }
+        input.classList.add('input-error');
+        input.classList.remove('input-success');
+        return;
+    }
+    
+    if (valor > 120) {
+        if (erro) {
+            erro.textContent = 'O número máximo de parcelas é 120';
+            erro.classList.remove('hidden');
+        }
+        input.classList.add('input-error');
+        input.classList.remove('input-success');
+        return;
+    }
+    
+    if (erro) erro.classList.add('hidden');
+    input.classList.remove('input-error');
+    input.classList.add('input-success');
 }
 
 // Função para atualizar o min da data fim baseado na data início
@@ -2259,22 +2389,47 @@ function addDespesaModal() {
         // Obter tipo de despesa fixa
         tipoFixa = document.getElementById("modalDespesaTipoFixa").value;
         
-        // Se for determinado, validar datas
+        // Se for determinado, validar datas ou parcelas
         if (tipoFixa === "determinado") {
-            dataInicio = document.getElementById("modalDespesaDataInicio").value;
-            dataFim = document.getElementById("modalDespesaDataFim").value;
+            const tipoPeriodo = document.getElementById("modalDespesaTipoPeriodo").value;
             
-            if (!dataInicio || !dataFim) {
-                mostrarToast("Preencha as datas de início e fim para despesas determinadas", "error");
-                return;
-            }
-            
-            // Validar que data fim é posterior à data início
-            const inicio = new Date(dataInicio);
-            const fim = new Date(dataFim);
-            if (fim < inicio) {
-                mostrarToast("A data de fim deve ser posterior à data de início", "error");
-                return;
+            if (tipoPeriodo === "range") {
+                // Validar range de data
+                dataInicio = document.getElementById("modalDespesaDataInicio").value;
+                dataFim = document.getElementById("modalDespesaDataFim").value;
+                
+                if (!dataInicio || !dataFim) {
+                    mostrarToast("Preencha as datas de início e fim para despesas determinadas", "error");
+                    return;
+                }
+                
+                // Validar que data fim é posterior à data início
+                const inicio = new Date(dataInicio);
+                const fim = new Date(dataFim);
+                if (fim < inicio) {
+                    mostrarToast("A data de fim deve ser posterior à data de início", "error");
+                    return;
+                }
+            } else if (tipoPeriodo === "parcelas") {
+                // Validar número de parcelas
+                const numeroParcelasInput = document.getElementById("modalDespesaNumeroParcelas");
+                const numeroParcelas = parseInt(numeroParcelasInput.value);
+                
+                if (!numeroParcelasInput.value || isNaN(numeroParcelas) || numeroParcelas < 1) {
+                    mostrarErro('modalDespesaNumeroParcelas', 'modalDespesaNumeroParcelasErro', 'Digite um número válido de parcelas (mínimo: 1)');
+                    mostrarToast("Digite um número válido de parcelas", "error");
+                    numeroParcelasInput.focus();
+                    return;
+                }
+                
+                if (numeroParcelas > 120) {
+                    mostrarErro('modalDespesaNumeroParcelas', 'modalDespesaNumeroParcelasErro', 'O número máximo de parcelas é 120');
+                    mostrarToast("O número máximo de parcelas é 120", "error");
+                    numeroParcelasInput.focus();
+                    return;
+                }
+                
+                limparErro('modalDespesaNumeroParcelas', 'modalDespesaNumeroParcelasErro');
             }
         }
     }
@@ -2345,6 +2500,81 @@ function addDespesaModal() {
     // Obter descrição
     const descricao = document.getElementById("modalDespesaDescricao").value.trim() || "";
 
+    // Verificar se é despesa determinada com parcelas
+    if (tipo === "fixa" && tipoFixa === "determinado") {
+        const tipoPeriodo = document.getElementById("modalDespesaTipoPeriodo").value;
+        
+        if (tipoPeriodo === "parcelas") {
+            // Criar múltiplas despesas (parcelas)
+            const numeroParcelas = parseInt(document.getElementById("modalDespesaNumeroParcelas").value);
+            const [mesStr, anoStr] = mes.split('/');
+            let mesAtual = parseInt(mesStr);
+            let anoAtual = parseInt(anoStr);
+            
+            let despesasCriadas = 0;
+            
+            for (let i = 0; i < numeroParcelas; i++) {
+                // Calcular mês da parcela
+                const mesParcela = String(mesAtual).padStart(2, '0');
+                const mesFormatado = `${mesParcela}/${anoAtual}`;
+                
+                // Calcular data da parcela (usar o mesmo dia do mês inicial, ou último dia se não existir)
+                const dataObj = new Date(data + 'T00:00:00');
+                const diaOriginal = dataObj.getDate();
+                
+                // Verificar quantos dias tem o mês da parcela
+                const ultimoDiaMes = new Date(anoAtual, mesAtual, 0).getDate();
+                const diaParcela = Math.min(diaOriginal, ultimoDiaMes);
+                
+                const dataParcelaObj = new Date(anoAtual, mesAtual - 1, diaParcela);
+                const dia = String(dataParcelaObj.getDate()).padStart(2, '0');
+                const mesData = String(dataParcelaObj.getMonth() + 1).padStart(2, '0');
+                const anoData = dataParcelaObj.getFullYear();
+                const dataParcelaFormatada = `${dia}/${mesData}/${anoData}`;
+                
+                // Calcular data início e fim baseado no mês da parcela
+                const dataInicioParcela = new Date(anoAtual, mesAtual - 1, 1);
+                const dataFimParcela = new Date(anoAtual, mesAtual, 0);
+                const dataInicioFormatada = `${anoAtual}-${mesParcela}-01`;
+                const dataFimFormatada = `${anoAtual}-${mesParcela}-${String(dataFimParcela.getDate()).padStart(2, '0')}`;
+                
+                despesas.push({ 
+                    id: gerarId(),
+                    nome: sanitizar(nome), 
+                    valor: valor, 
+                    tipo: tipo,
+                    tipoFixa: tipoFixa || null,
+                    dataInicio: dataInicioFormatada,
+                    dataFim: dataFimFormatada,
+                    gerarAutomaticamente: false, // Parcelas não geram automaticamente
+                    categoria: categoria || "",
+                    descricao: descricao || "",
+                    mes: mesFormatado,
+                    data: dataParcelaFormatada
+                });
+                
+                despesasCriadas++;
+                
+                // Avançar para o próximo mês
+                mesAtual++;
+                if (mesAtual > 12) {
+                    mesAtual = 1;
+                    anoAtual++;
+                }
+            }
+            
+            salvar();
+            render();
+            
+            // Fechar modal
+            fecharModalAdicionarDespesa();
+            
+            mostrarToast(`${despesasCriadas} parcela(s) criada(s) com sucesso!`, "success");
+            return;
+        }
+    }
+
+    // Criar despesa única (comportamento padrão)
     despesas.push({ 
         id: gerarId(),
         nome: sanitizar(nome), 
